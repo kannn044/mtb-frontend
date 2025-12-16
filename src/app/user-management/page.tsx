@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableHeader,
@@ -16,29 +15,47 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type User = {
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+interface User {
   id: number;
   username: string;
-  fullName: string;
-  role: string;
-};
-
-const initialUsers: User[] = [
-  { id: 1, username: "johndoe", fullName: "John Doe", role: "Admin" },
-  { id: 2, username: "janesmith", fullName: "Jane Smith", role: "User" },
-  { id: 3, username: "peterjones", fullName: "Peter Jones", role: "User" },
-];
+  name: string;
+  lastname: string;
+  status: string;
+}
 
 export default function UserManagementPage() {
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const token = sessionStorage.getItem('token');
+        const response = await fetch(`${API_URL}/api/users`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) {
+          throw new Error("Failed to fetch users");
+        }
+        const data = await response.json();
+        setUsers(data);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   const handleCreateUser = () => {
     setCurrentUser(null);
@@ -57,11 +74,12 @@ export default function UserManagementPage() {
   const handleSaveUser = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newUser = {
+    const newUser: User = {
       id: currentUser ? currentUser.id : Date.now(),
       username: formData.get("username") as string,
-      fullName: formData.get("fullName") as string,
-      role: formData.get("role") as string,
+      name: formData.get("name") as string,
+      lastname: formData.get("lastname") as string,
+      status: formData.get("status") as string,
     };
 
     if (currentUser) {
@@ -96,8 +114,8 @@ export default function UserManagementPage() {
               <TableRow key={user.id}>
                 <TableCell>{user.id}</TableCell>
                 <TableCell>{user.username}</TableCell>
-                <TableCell>{user.fullName}</TableCell>
-                <TableCell>{user.role}</TableCell>
+                <TableCell>{user.name} {user.lastname}</TableCell>
+                <TableCell>{user.status}</TableCell>
                 <TableCell>
                   <div className="flex space-x-2">
                     <Button
@@ -140,22 +158,35 @@ export default function UserManagementPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="name">Name</Label>
               <Input
-                id="fullName"
-                name="fullName"
-                defaultValue={currentUser?.fullName}
+                id="name"
+                name="name"
+                defaultValue={currentUser?.name}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
+              <Label htmlFor="lastname">Last Name</Label>
               <Input
-                id="role"
-                name="role"
-                defaultValue={currentUser?.role}
+                id="lastname"
+                name="lastname"
+                defaultValue={currentUser?.lastname}
                 required
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <select
+              id="status"
+              name="status"
+              defaultValue={currentUser?.status || 'Y'}
+              required
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+              <option value="Y">Activate</option>
+              <option value="N">Deactivate</option>
+              </select>
             </div>
             <div className="flex justify-end space-x-2">
               <Button
@@ -170,6 +201,6 @@ export default function UserManagementPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }
