@@ -22,10 +22,15 @@ import {
   PieChart,
   Pie,
   Cell,
-  ScatterChart,
-  Scatter,
 } from "recharts";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+
+const ThailandMap = dynamic(() => import("@/components/ui/ThailandMap"), {
+  ssr: false,
+});
+
+const NUM_RECENT_CLUSTERS = 5;
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
@@ -81,13 +86,10 @@ interface TransformedData {
     name: string;
     value: number;
   }[];
-  scatterPlotData: {
-    coverage: number;
-    mean_depth: number;
-  }[];
+  districtSummary: {
+    [key: string]: number;
+  };
 }
-
-const NUM_RECENT_CLUSTERS = 5;
 
 const transformBackendData = (
   rawData: RawClusterData[]
@@ -145,11 +147,12 @@ const transformBackendData = (
     })
   );
 
-  // Prepare data for scatter plot
-  const scatterPlotData = rawData.map((item) => ({
-    coverage: parseFloat(item.coverage),
-    mean_depth: parseFloat(item.mean_depth),
-  }));
+  // Summarize data by district
+  const districtSummary = rawData.reduce((acc, curr) => {
+    const district = curr.district || "Unknown";
+    acc[district] = (acc[district] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
   // Get a few recent clusters for the table
   const recentClusters: RecentCluster[] = rawData
@@ -168,7 +171,7 @@ const transformBackendData = (
     clusterDistribution,
     lineageDistribution,
     provinceDistribution,
-    scatterPlotData,
+    districtSummary,
   };
 };
 
@@ -360,29 +363,10 @@ export default function DashboardPage() {
           <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1 mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Coverage vs. Mean Depth</CardTitle>
+                <CardTitle>District Summary</CardTitle>
               </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <ScatterChart
-                    margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-                  >
-                    <CartesianGrid />
-                    <XAxis type="number" dataKey="coverage" name="Coverage" unit="%" />
-                    <YAxis
-                      type="number"
-                      dataKey="mean_depth"
-                      name="Mean Depth"
-                    />
-                    <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-                    <Legend />
-                    <Scatter
-                      name="Samples"
-                      data={data.scatterPlotData}
-                      fill="#8884d8"
-                    />
-                  </ScatterChart>
-                </ResponsiveContainer>
+              <CardContent style={{ height: "500px" }}>
+                <ThailandMap districtSummary={data.districtSummary} />
               </CardContent>
             </Card>
           </div>
