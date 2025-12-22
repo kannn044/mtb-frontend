@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
 import { FeatureCollection } from "geojson";
+import { Layer, LeafletEvent, PathOptions } from "leaflet";
 
 interface ThailandMapProps {
   districtSummary: { [key: string]: number };
@@ -33,18 +34,61 @@ const ThailandMap: React.FC<ThailandMapProps> = ({ districtSummary }) => {
     if (count > 5) return "#FD8D3C";
     if (count > 2) return "#FEB24C";
     if (count > 0) return "#FED976";
-    return "#FFEDA0";
+    return "#eeebddff";
   };
 
-  const style = (feature: GeoJSON.Feature) => {
+  const style = (feature?: GeoJSON.Feature): PathOptions => {
+    if (!feature) {
+      return {
+        weight: 1,
+        opacity: 1,
+        color: "white",
+        dashArray: "3",
+        fillOpacity: 0.7,
+        fillColor: getColor(""),
+      };
+    }
+
     return {
-      fillColor: getColor(feature.properties.amp_en),
+      fillColor: getColor(String(feature.properties?.amp_en ?? "")),
       weight: 1,
       opacity: 1,
       color: "white",
       dashArray: "3",
       fillOpacity: 0.7,
     };
+  };
+
+  const onEachFeature = (feature: GeoJSON.Feature, layer: Layer) => {
+    const districtName = feature.properties?.amp_en;
+    const count = districtSummary[districtName] || 0;
+    layer.bindTooltip(`${districtName}: ${count}`);
+
+    layer.on({
+      mouseover: (e: LeafletEvent) => {
+        const layer = e.target;
+        layer.setStyle({
+          weight: 3,
+          color: "#666",
+          dashArray: "",
+          fillOpacity: 0.7,
+        });
+        layer.bringToFront();
+      },
+      mouseout: (e: LeafletEvent) => {
+        const layer = e.target;
+        // This is a bit of a hack to get the original style back
+        // A better way would be to reset to the original style
+        // but for this simple case, this works.
+        layer.setStyle({
+          weight: 1,
+          opacity: 1,
+          color: "white",
+          dashArray: "3",
+          fillOpacity: 0.7,
+        });
+      },
+    });
   };
 
   if (!geoJsonData) {
@@ -61,7 +105,7 @@ const ThailandMap: React.FC<ThailandMapProps> = ({ districtSummary }) => {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
-      <GeoJSON data={geoJsonData} style={style} />
+      <GeoJSON data={geoJsonData} style={style} onEachFeature={onEachFeature} />
     </MapContainer>
   );
 };
