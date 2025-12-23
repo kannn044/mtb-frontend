@@ -1,5 +1,6 @@
 
 import { Navbar } from "@/components/Navbar/Navbar";
+import { Toaster } from 'sonner';
 
 export default function DashboardLayout({
   children,
@@ -10,6 +11,7 @@ export default function DashboardLayout({
     <div>
       <Navbar />
       <main>{children}</main>
+      <Toaster />
     </div>
   );
 }
