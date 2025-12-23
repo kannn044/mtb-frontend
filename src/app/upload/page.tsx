@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import API_URL from "@/lib/api";
 import { toast } from "sonner"; // คุณมี sonner ใน package.json แล้ว
 
-export default function UploadPage() {
+export default function UploadPage({ token }: { token: string }) {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -31,9 +31,14 @@ export default function UploadPage() {
       const response = await fetch(`${API_URL}/api/upload`, {
         method: "POST",
         body: formData,
+        headers: {
+            'Authorization': `Bearer ${token}`
+        },
         // ไม่ต้องเซต Header Content-Type เพราะ FormData จะจัดการให้เองรวมถึง boundary
-      });
-
+      },);
+      
+      console.log(response);
+      
       if (response.ok) {
         toast.success("อัปโหลดสำเร็จ!");
         setTitle("");
