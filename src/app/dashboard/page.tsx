@@ -10,6 +10,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import API_URL from "@/lib/api";
 import {
   BarChart,
   Bar,
@@ -183,7 +184,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("http://localhost:3001/api/csv");
+        const response = await fetch(`${API_URL}/api/csv`);
         if (!response.ok) {
           throw new Error("Failed to fetch data");
         }
@@ -203,6 +204,7 @@ export default function DashboardPage() {
   if (error) {
     return <div>Error: {error.message}</div>;
   }
+
 
   return (
     <div className="container mx-auto py-10">

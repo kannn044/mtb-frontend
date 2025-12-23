@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import API_URL from "@/lib/api";
 import { toast } from "sonner"; // คุณมี sonner ใน package.json แล้ว
 
 export default function UploadPage() {
@@ -27,7 +28,7 @@ export default function UploadPage() {
 
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:5000/api/upload", {
+      const response = await fetch(`${API_URL}/api/upload`, {
         method: "POST",
         body: formData,
         // ไม่ต้องเซต Header Content-Type เพราะ FormData จะจัดการให้เองรวมถึง boundary

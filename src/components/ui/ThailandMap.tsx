@@ -60,9 +60,11 @@ const ThailandMap: React.FC<ThailandMapProps> = ({ districtSummary }) => {
   };
 
   const onEachFeature = (feature: GeoJSON.Feature, layer: Layer) => {
-    const districtName = feature.properties?.amp_en;
-    const count = districtSummary[districtName] || 0;
-    layer.bindTooltip(`${districtName}: ${count}`);
+    const provinceNameTh = feature.properties?.pro_th;
+    const districtNameTh = feature.properties?.amp_th;
+    const districtNameEn = feature.properties?.amp_en;
+    const count = districtSummary[districtNameEn] || 0;
+    layer.bindTooltip(`${provinceNameTh} (${districtNameTh}): ${count}`);
 
     layer.on({
       mouseover: (e: LeafletEvent) => {

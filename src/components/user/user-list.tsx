@@ -1,11 +1,18 @@
-'use client';
-
 import React, { useState, useEffect } from 'react';
+import API_URL from '@/lib/api';
+
+interface User {
+    username: string;
+    name: string;
+    lastname: string;
+    is_active: boolean;
+    status: 'USER' | 'ADMIN';
+}
 
 const UserList = ({ token }: { token: string }) => {
-    const [users, setUsers] = useState<any[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [isEditing, setIsEditing] = useState(false);
-    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
 
     const [formData, setFormData] = useState({
         username: '',
@@ -13,32 +20,32 @@ const UserList = ({ token }: { token: string }) => {
         name: '',
         lastname: '',
         is_active: true,
-        status: 'USER'
+        status: 'USER' as 'USER' | 'ADMIN'
     });
 
     useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const res = await fetch(`${API_URL}/api/users`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await res.json();
+                if (data.ok === false) {
+                    alert(data.error);
+                    return;
+                }
+                setUsers(data);
+            } catch (error) {
+                console.error('Error fetching users:', error);
+            }
+        };
+
         if (token) {
             fetchUsers();
         }
     }, [token]);
-
-    const fetchUsers = async () => {
-        try {
-            const res = await fetch('/api/users', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            const data = await res.json();
-            if (data.ok === false) {
-                alert(data.error);
-                return;
-            }
-            setUsers(data);
-        } catch (error) {
-            console.error('Error fetching users:', error);
-        }
-    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -52,7 +59,7 @@ const UserList = ({ token }: { token: string }) => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const url = isEditing ? `/api/users/${currentUser.username}` : '/api/users/register';
+        const url = isEditing ? `${API_URL}/api/users/${currentUser?.username}` : `${API_URL}/api/users/register`;
         const method = isEditing ? 'PUT' : 'POST';
 
         try {
@@ -70,14 +77,34 @@ const UserList = ({ token }: { token: string }) => {
                 return;
             }
             alert(`User ${isEditing ? 'updated' : 'created'} successfully`);
+            
+            // Re-fetch users after submission
+            const fetchUsers = async () => {
+                try {
+                    const res = await fetch(`${API_URL}/api/users`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    const data = await res.json();
+                    if (data.ok === false) {
+                        alert(data.error);
+                        return;
+                    }
+                    setUsers(data);
+                } catch (error) {
+                    console.error('Error fetching users:', error);
+                }
+            };
             fetchUsers();
+
             resetForm();
         } catch (error) {
             console.error(`Error ${isEditing ? 'updating' : 'creating'} user:`, error);
         }
     };
-
-    const handleEdit = (user: any) => {
+    
+    const handleEdit = (user: User) => {
         setIsEditing(true);
         setCurrentUser(user);
         setFormData({
@@ -96,7 +123,7 @@ const UserList = ({ token }: { token: string }) => {
         }
 
         try {
-            const res = await fetch(`/api/users/${username}`, {
+            const res = await fetch(`${API_URL}/api/users/${username}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -108,6 +135,23 @@ const UserList = ({ token }: { token: string }) => {
                 return;
             }
             alert('User deleted successfully');
+            const fetchUsers = async () => {
+                try {
+                    const res = await fetch(`${API_URL}/api/users`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    const data = await res.json();
+                    if (data.ok === false) {
+                        alert(data.error);
+                        return;
+                    }
+                    setUsers(data);
+                } catch (error) {
+                    console.error('Error fetching users:', error);
+                }
+            };
             fetchUsers();
         } catch (error) {
             console.error('Error deleting user:', error);

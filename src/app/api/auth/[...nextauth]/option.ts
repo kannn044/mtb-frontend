@@ -1,4 +1,6 @@
+import API_URL from '@/lib/api';
 import { NextAuthOptions } from 'next-auth';
+import { JWT } from 'next-auth/jwt';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
 export const nextAuthOptions: NextAuthOptions = {
@@ -9,8 +11,8 @@ export const nextAuthOptions: NextAuthOptions = {
                 username: { label: "Username", type: "text" },
                 password: { label: "Password", type: "password" }
             },
-            async authorize(credentials, req) {
-                const res = await fetch("http://localhost:3001/login", {
+            async authorize(credentials) {
+                const res = await fetch(`${API_URL}/login`, {
                     method: 'POST',
                     body: JSON.stringify(credentials),
                     headers: { "Content-Type": "application/json" }
@@ -31,8 +33,8 @@ export const nextAuthOptions: NextAuthOptions = {
         async jwt({ token, user }) {
             return { ...token, ...user };
         },
-        async session({ session, token, user }) {
-            session.user = token as any;
+        async session({ session, token }) {
+            session.user = token as JWT;
             return session;
         }
     },

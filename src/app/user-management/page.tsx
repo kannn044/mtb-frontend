@@ -20,7 +20,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+import API_URL from "@/lib/api";
 
 interface User {
   id: number;
