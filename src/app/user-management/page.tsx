@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import {
   Table,
   TableHeader,
@@ -28,6 +29,16 @@ interface User {
   name: string;
   lastname: string;
   status: string;
+  is_active: boolean;
+}
+
+interface UserPayload {
+  username: string;
+  name: string;
+  lastname: string;
+  status: string;
+  is_active: boolean;
+  password?: string;
 }
 
 export default function UserManagementPage() {
@@ -35,59 +46,115 @@ export default function UserManagementPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const token = sessionStorage.getItem('token');
-        const response = await fetch(`${API_URL}/api/users`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        if (!response.ok) {
-          throw new Error("Failed to fetch users");
-        }
-        const data = await response.json();
-        setUsers(data);
-      } catch (error) {
-        console.error("Error fetching users:", error);
+  const fetchUsers = useCallback(async () => {
+    try {
+      const token = sessionStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch users");
       }
-    };
-
-    fetchUsers();
+      const data = await response.json();
+      setUsers(data);
+    } catch (error) {
+      toast.error("Failed to fetch users");
+      console.error("Error fetching users:", error);
+    }
   }, []);
 
-  const handleCreateUser = () => {
-    setCurrentUser(null);
-    setIsDialogOpen(true);
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleDeleteUser = async (id: number) => {
+    try {
+      const token = sessionStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/users/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete user');
+      } else {
+        toast.success('User deleted successfully');
+      }
+
+      fetchUsers();
+    } catch (error) {
+      toast.error('Failed to delete user');
+      console.error('Error deleting user:', error);
+    }
   };
 
-  const handleEditUser = (user: User) => {
-    setCurrentUser(user);
-    setIsDialogOpen(true);
-  };
-
-  const handleDeleteUser = (id: number) => {
-    setUsers(users.filter((user) => user.id !== id));
-  };
-
-  const handleSaveUser = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newUser: User = {
-      id: currentUser ? currentUser.id : Date.now(),
+    const password = formData.get("password") as string;
+
+    const user: UserPayload = {
       username: formData.get("username") as string,
       name: formData.get("name") as string,
       lastname: formData.get("lastname") as string,
+      is_active: formData.get("is_active") === "true",
       status: formData.get("status") as string,
     };
 
+    if (password) {
+      user.password = password;
+    }
+
     if (currentUser) {
-      setUsers(
-        users.map((user) => (user.id === currentUser.id ? newUser : user))
-      );
+      try {
+        const token = sessionStorage.getItem('token');
+        const response = await fetch(`${API_URL}/api/users/${currentUser.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(user),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update user');
+        } else {
+          toast.success('User updated successfully');
+        }
+
+        fetchUsers();
+      } catch (error) {
+        toast.error('Failed to update user');
+        console.error('Error updating user:', error);
+      }
     } else {
-      setUsers([...users, newUser]);
+      try {
+        const token = sessionStorage.getItem('token');
+        const response = await fetch(`${API_URL}/api/users`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(user),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create user');
+        } else {
+          toast.success('User created successfully');
+        }
+
+        fetchUsers();
+      } catch (error) {
+        toast.error('Failed to create user');
+        console.error('Error creating user:', error);
+      }
     }
     setIsDialogOpen(false);
   };
@@ -96,7 +163,7 @@ export default function UserManagementPage() {
     <div className="container mx-auto py-10">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">User Management</h1>
-        <Button onClick={handleCreateUser}>Create User</Button>
+        <Button onClick={() => { setCurrentUser(null); setIsDialogOpen(true); }}>Create User</Button>
       </div>
       <Card>
         <Table>
@@ -106,6 +173,7 @@ export default function UserManagementPage() {
               <TableHead>Username</TableHead>
               <TableHead>Full Name</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Is Active</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -116,22 +184,23 @@ export default function UserManagementPage() {
                 <TableCell>{user.username}</TableCell>
                 <TableCell>{user.name} {user.lastname}</TableCell>
                 <TableCell>{user.status}</TableCell>
+                <TableCell>{user.is_active ? 'Yes' : 'No'}</TableCell>
                 <TableCell>
                   <div className="flex space-x-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleEditUser(user)}
+                      onClick={() => { setCurrentUser(user); setIsDialogOpen(true); }}
                     >
                       Edit
                     </Button>
-                    <Button
+                    {/* <Button
                       variant="destructive"
                       size="sm"
                       onClick={() => handleDeleteUser(user.id)}
                     >
                       Delete
-                    </Button>
+                    </Button> */}
                   </div>
                 </TableCell>
               </TableRow>
@@ -158,6 +227,15 @@ export default function UserManagementPage() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                required={!currentUser}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input
                 id="name"
@@ -176,16 +254,30 @@ export default function UserManagementPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="is_active">Is Active</Label>
               <select
-              id="status"
-              name="status"
-              defaultValue={currentUser?.status || 'Y'}
-              required
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                id="is_active"
+                name="is_active"
+                defaultValue={currentUser ? (currentUser.is_active ? 'true' : 'false') : 'true'}
+                required
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-              <option value="Y">Activate</option>
-              <option value="N">Deactivate</option>
+                <option value="true">Activate</option>
+                <option value="false">Deactivate</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Role</Label>
+              <select
+                id="status"
+                name="status"
+                defaultValue={currentUser?.status || 'USER'}
+                required
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {/* <option value="ADMIN">ADMIN</option> */}
+                <option value="STAFF">STAFF</option>
+                <option value="USER">USER</option>
               </select>
             </div>
             <div className="flex justify-end space-x-2">
