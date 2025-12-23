@@ -1,21 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import API_URL from "@/lib/api";
-import { toast } from "sonner"; // คุณมี sonner ใน package.json แล้ว
+import { toast } from "sonner";
 
-export default function UploadPage({ token }: { token: string }) {
+export default function UploadPage() {
+  const [token, setToken] = useState<string | null>(null);
+
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    // Change "token" to whatever key you store it under in sessionStorage
+    const t = sessionStorage.getItem("token");
+    setToken(t);
+  }, []);
+
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!token) {
+      toast.error("ไม่พบ token กรุณาเข้าสู่ระบบใหม่");
+      return;
+    }
+
     if (!file || !title) {
       toast.error("กรุณากรอกข้อมูลให้ครบถ้วน");
       return;
@@ -32,20 +46,20 @@ export default function UploadPage({ token }: { token: string }) {
         method: "POST",
         body: formData,
         headers: {
-            'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        // ไม่ต้องเซต Header Content-Type เพราะ FormData จะจัดการให้เองรวมถึง boundary
-      },);
-      
-      console.log(response);
-      
+      });
+
+      const text = await response.text();
+      console.log("response body (text):", text || "(empty)");
+
       if (response.ok) {
         toast.success("อัปโหลดสำเร็จ!");
         setTitle("");
         setDescription("");
         setFile(null);
       } else {
-        toast.error("เกิดข้อผิดพลาดในการอัปโหลด");
+        toast.error(text ? `เกิดข้อผิดพลาด: ${text}` : "เกิดข้อผิดพลาดในการอัปโหลด");
       }
     } catch (error) {
       console.error(error);
@@ -65,34 +79,34 @@ export default function UploadPage({ token }: { token: string }) {
           <form onSubmit={handleUpload} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="title">ชื่อรายการ (Title)</Label>
-              <Input 
-                id="title" 
-                value={title} 
-                onChange={(e) => setTitle(e.target.value)} 
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 placeholder="ระบุชื่อข้อมูล"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="desc">คำอธิบาย (Description)</Label>
-              <Input 
-                id="desc" 
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)} 
+              <Input
+                id="desc"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 placeholder="ระบุรายละเอียดเพิ่มเติม"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="file">เลือกไฟล์</Label>
-              <Input 
-                id="file" 
-                type="file" 
-                onChange={(e) => setFile(e.target.files?.[0] || null)} 
+              <Input
+                id="file"
+                type="file"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || !token}>
               {loading ? "กำลังอัปโหลด..." : "บันทึกและอัปโหลด"}
             </Button>
           </form>
