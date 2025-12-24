@@ -1,9 +1,9 @@
 import API_URL from '@/lib/api';
-import { NextAuthOptions } from 'next-auth';
-import { JWT } from 'next-auth/jwt';
+import type { NextAuthConfig } from 'next-auth';
+
 import CredentialsProvider from 'next-auth/providers/credentials';
 
-export const nextAuthOptions: NextAuthOptions = {
+export const nextAuthOptions: NextAuthConfig = {
     providers: [
         CredentialsProvider({
             name: 'Credentials',
@@ -34,7 +34,15 @@ export const nextAuthOptions: NextAuthOptions = {
             return { ...token, ...user };
         },
         async session({ session, token }) {
-            session.user = token as JWT;
+            session.user = {
+                ...session.user, // Keep existing properties in session.user
+                id: (token.id || '') as string,
+                username: token.username as string | undefined,
+                email: (token.email || '') as string,
+                name: (token.name || '') as string,
+                image: (token.image || '') as string,
+                emailVerified: (token.emailVerified || null) as Date | null,
+            };
             return session;
         }
     },
