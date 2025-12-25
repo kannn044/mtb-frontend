@@ -35,6 +35,7 @@ const GENERAL_FIELDS = [
 
 export default function UploadPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   
   // State สำหรับเก็บไฟล์
@@ -155,9 +156,11 @@ export default function UploadPage() {
     setSelectedPcode(provinceObj ? provinceObj.adm1_pcode : "");
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const selectedFiles = Array.from(e.target.files);
+
+  // Handle file selection (from both input and drop)
+  const handleFiles = (fileList: FileList) => {
+    if (fileList && fileList.length > 0) {
+      const selectedFiles = Array.from(fileList);
       const validFiles = selectedFiles.filter(file => file.name.toLowerCase().endsWith('.gz'));
       
       if (validFiles.length < selectedFiles.length) {
@@ -167,8 +170,41 @@ export default function UploadPage() {
         setFiles((prev) => [...prev, ...validFiles]);
       }
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleFiles(e.target.files!);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isLoading) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation(); // Necessary to allow dropping
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (isLoading) return;
+
+    handleFiles(e.dataTransfer.files);
+  };
+
 
   const removeFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
@@ -380,15 +416,20 @@ export default function UploadPage() {
               
               <div 
                 onClick={() => !isLoading && fileInputRef.current?.click()}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
                 className={`
-                  bg-white border-2 border-dashed border-slate-300 rounded-lg p-10 
+                  bg-white border-2 border-dashed  rounded-lg p-10 
                   flex flex-col items-center justify-center cursor-pointer 
                   hover:border-slate-500 hover:bg-slate-50 transition-all duration-200
                   ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
+                  ${isDragging ? 'border-slate-600 bg-slate-100' : 'border-slate-300'}
                 `}
               >
                 <Upload className="h-12 w-12 text-slate-400 mb-3" />
-                <p className="text-sm text-slate-600 font-medium">Click to select files</p>
+                <p className="text-sm text-slate-600 font-medium">Click or drag & drop to select files</p>
                 <input type="file" multiple accept=".gz" className="hidden" ref={fileInputRef} onChange={handleFileChange} disabled={isLoading} />
               </div>
 
