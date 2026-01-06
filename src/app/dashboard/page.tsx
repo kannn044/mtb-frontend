@@ -24,6 +24,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import BoxPlotChart from "@/components/ui/BoxPlotChart";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 
@@ -68,6 +69,15 @@ interface RecentCluster {
   assignedTo: string;
 }
 
+interface BoxPlotData {
+  year: string;
+  min: number;
+  q1: number;
+  median: number;
+  q3: number;
+  max: number;
+}
+
 interface TransformedData {
   totalClusters: number;
   riskLevelSummary: {
@@ -90,6 +100,31 @@ interface TransformedData {
   districtSummary: {
     [key: string]: number;
   };
+  collectionYearDistribution: {
+    year: string;
+    count: number;
+  }[];
+  collectionYearSexDistribution: {
+    year: string;
+    maleCount: number;
+    femaleCount: number;
+  }[];
+  collectionYearAgeBoxPlot: BoxPlotData[];
+  collectionYearEthnicGroupDistribution: {
+    year: string;
+    [ethnicGroup: string]: string | number;
+  }[];
+  ethnicGroups: string[];
+  collectionYearEducationDistribution: {
+    year: string;
+    [educationLevel: string]: string | number;
+  }[];
+  educationLevels: string[];
+  collectionYearOccupationDistribution: {
+    year: string;
+    [occupation: string]: string | number;
+  }[];
+  occupations: string[];
 }
 
 const transformBackendData = (
@@ -155,6 +190,21 @@ const transformBackendData = (
     return acc;
   }, {} as Record<string, number>);
 
+  const collectionYearDistributionMap = rawData.reduce((acc, curr) => {
+    const year = curr.collection_date
+      ? new Date(curr.collection_date).getFullYear().toString()
+      : "Unknown";
+    acc[year] = (acc[year] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const collectionYearDistribution = Object.entries(
+    collectionYearDistributionMap
+  ).map(([year, count]) => ({
+    year,
+    count,
+  }));
+
   // Get a few recent clusters for the table
   const recentClusters: RecentCluster[] = rawData
     .slice(0, NUM_RECENT_CLUSTERS)
@@ -165,6 +215,162 @@ const transformBackendData = (
       assignedTo: "N/A", // Not available in the provided data
     }));
 
+  const collectionYearSexDistributionMap = rawData.reduce((acc, curr) => {
+    const year = curr.collection_date
+      ? new Date(curr.collection_date).getFullYear().toString()
+      : "Unknown";
+    if (!acc[year]) {
+      acc[year] = { year, maleCount: 0, femaleCount: 0 };
+    }
+    if (curr.sex?.toLowerCase() === "male") {
+      acc[year].maleCount += 1;
+    } else if (curr.sex?.toLowerCase() === "female") {
+      acc[year].femaleCount += 1;
+    }
+    return acc;
+  }, {} as Record<string, { year: string; maleCount: number; femaleCount: number }>);
+
+  const collectionYearSexDistribution = Object.values(collectionYearSexDistributionMap);
+
+  // Helper function to calculate quartile and median
+  const calculateBoxPlotStats = (data: number[]) => {
+    if (data.length === 0) {
+      return { min: 0, q1: 0, median: 0, q3: 0, max: 0 };
+    }
+
+    const sortedData = [...data].sort((a, b) => a - b);
+    const n = sortedData.length;
+
+    const median = n % 2 === 0
+      ? (sortedData[n / 2 - 1] + sortedData[n / 2]) / 2
+      : sortedData[Math.floor(n / 2)];
+
+    const getQuartile = (arr: number[], quartile: number) => {
+      const pos = (arr.length - 1) * quartile;
+      const base = Math.floor(pos);
+      const rest = pos - base;
+      if (arr[base + 1] !== undefined) {
+        return arr[base] + rest * (arr[base + 1] - arr[base]);
+      } else {
+        return arr[base];
+      }
+    };
+
+    const q1 = getQuartile(sortedData, 0.25);
+    const q3 = getQuartile(sortedData, 0.75);
+
+    const min = sortedData[0];
+    const max = sortedData[n - 1];
+
+    return { min, q1, median, q3, max };
+  };
+
+  // Calculate collection year and age box plot data
+  const yearAgeMap = rawData.reduce((acc, curr) => {
+    const year = curr.collection_date
+      ? new Date(curr.collection_date).getFullYear().toString()
+      : "Unknown";
+    const age = parseInt(curr.age);
+    if (!isNaN(age)) {
+      if (!acc[year]) {
+        acc[year] = [];
+      }
+      acc[year].push(age);
+    }
+    return acc;
+  }, {} as Record<string, number[]>);
+
+  const collectionYearAgeBoxPlot: BoxPlotData[] = Object.entries(yearAgeMap)
+    .map(([year, ages]) => {
+      const stats = calculateBoxPlotStats(ages);
+      return { year, ...stats };
+    })
+    .sort((a, b) => parseInt(a.year) - parseInt(b.year)); // Sort by year
+
+  // Calculate ethnic group distribution by year
+  const ethnicGroups = [...new Set(rawData.map(item => item.ethnic_group || "Unknown"))];
+    const collectionYearEthnicGroupDistribution = rawData.reduce((acc, curr) => {
+      const year = curr.collection_date
+        ? new Date(curr.collection_date).getFullYear().toString()
+        : "Unknown";
+
+      let yearData: { year: string; [key: string]: string | number } | undefined = acc.find(item => item.year === year);
+      if (!yearData) {
+        const newYearData: { year: string; [key: string]: string | number } = { year };
+        ethnicGroups.forEach(group => {
+          newYearData[group] = 0;
+        });
+        acc.push(newYearData);
+        yearData = newYearData;
+      }
+
+      const ethnicGroup = curr.ethnic_group || "Unknown";
+      if (yearData[ethnicGroup] !== undefined) {
+        yearData[ethnicGroup] = (yearData[ethnicGroup] as number) + 1;
+      }
+
+      return acc;
+    }, [] as { year: string; [ethnicGroup: string]: string | number; }[]);
+
+  // Sort by year
+  collectionYearEthnicGroupDistribution.sort((a, b) => parseInt(a.year) - parseInt(b.year));
+
+  // Calculate education distribution by year
+  const educationLevels = [...new Set(rawData.map(item => item.education || "Unknown"))];
+  const collectionYearEducationDistribution = rawData.reduce((acc, curr) => {
+    const year = curr.collection_date
+      ? new Date(curr.collection_date).getFullYear().toString()
+      : "Unknown";
+    
+    let yearData: { year: string; [key: string]: string | number } | undefined = acc.find(item => item.year === year);
+    if (!yearData) {
+      const newYearData: { year: string; [key: string]: string | number } = { year };
+      educationLevels.forEach(level => {
+        newYearData[level] = 0;
+      });
+      acc.push(newYearData);
+      yearData = newYearData;
+    }
+    
+    const education = curr.education || "Unknown";
+    if (yearData[education] !== undefined) {
+      yearData[education] = (yearData[education] as number) + 1;
+    }
+
+    return acc;
+  }, [] as { year: string; [educationLevel: string]: string | number; }[]);
+
+  // Sort by year
+  collectionYearEducationDistribution.sort((a, b) => parseInt(a.year) - parseInt(b.year));
+
+  // Calculate occupation distribution by year
+  const occupations = [...new Set(rawData.map(item => item.occupation || "Unknown"))];
+  const collectionYearOccupationDistribution = rawData.reduce((acc, curr) => {
+    const year = curr.collection_date
+      ? new Date(curr.collection_date).getFullYear().toString()
+      : "Unknown";
+    
+    let yearData: { year: string; [key: string]: string | number } | undefined = acc.find(item => item.year === year);
+    if (!yearData) {
+      const newYearData: { year: string; [key: string]: string | number } = { year };
+      occupations.forEach(occ => {
+        newYearData[occ] = 0;
+      });
+      acc.push(newYearData);
+      yearData = newYearData;
+    }
+    
+    const occupation = curr.occupation || "Unknown";
+    if (yearData[occupation] !== undefined) {
+      yearData[occupation] = (yearData[occupation] as number) + 1;
+    }
+
+    return acc;
+  }, [] as { year: string; [occupation: string]: string | number; }[]);
+
+  // Sort by year
+  collectionYearOccupationDistribution.sort((a, b) => parseInt(a.year) - parseInt(b.year));
+
   return {
     totalClusters,
     riskLevelSummary,
@@ -173,6 +379,15 @@ const transformBackendData = (
     lineageDistribution,
     provinceDistribution,
     districtSummary,
+    collectionYearDistribution,
+    collectionYearSexDistribution,
+    collectionYearAgeBoxPlot,
+    collectionYearEthnicGroupDistribution,
+    ethnicGroups,
+    collectionYearEducationDistribution,
+    educationLevels,
+    collectionYearOccupationDistribution,
+    occupations,
   };
 };
 
@@ -216,19 +431,9 @@ export default function DashboardPage() {
       {data && (
         <>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">
-                  Total Clusters
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {data.totalClusters.toString()}
-                </div>
-              </CardContent>
-            </Card>
-            {data.riskLevelSummary && data.riskLevelSummary.map((item, index) => (
+            {data.riskLevelSummary && data.riskLevelSummary
+              .filter(item => !["Other", "Sensitive", "HR-TB", "MDR-TB", "RR-TB", "Pre-XDR-TB", "XDR-TB"].includes(item.title))
+              .map((item, index) => (
               <Card key={index}>
                 <CardHeader>
                   <CardTitle className="text-sm font-medium">
@@ -242,70 +447,7 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Recent Clusters</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Cluster ID</TableHead>
-                      <TableHead>Risk Level</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Assigned To</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.recentClusters.map((cluster) => (
-                      <TableRow key={cluster.id}>
-                        <TableCell>{cluster.id}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              cluster.risk === "HR-TB" || cluster.risk === "MDR-TB"
-                                ? "destructive"
-                                : cluster.risk === "Pre-XDR-TB"
-                                ? "secondary"
-                                : "default"
-                            }
-                          >
-                            {cluster.risk}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{cluster.status}</TableCell>
-                        <TableCell>{cluster.assignedTo}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Cluster Distribution by Risk</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart
-                    data={data.clusterDistribution.map((item) => ({
-                      name: item.risk,
-                      value: item.count,
-                    }))}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="value" fill="#8884d8" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-6">
             <Card>
@@ -362,6 +504,136 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 mt-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Sample Collection Year</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={data.collectionYearDistribution}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="year" />
+                              <YAxis />
+                              <Tooltip />
+                              <Legend />
+                              <Bar dataKey="count" fill="#8884d8" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+          
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Sample Collection Year by Sex</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={data.collectionYearSexDistribution}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="year" />
+                              <YAxis />
+                              <Tooltip />
+                              <Legend />
+                              <Bar dataKey="maleCount" stackId="a" fill="#8884d8" name="Male" />
+                              <Bar dataKey="femaleCount" stackId="a" fill="#82ca9d" name="Female" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Age Distribution by Collection Year (Box Plot)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BoxPlotChart data={data.collectionYearAgeBoxPlot} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Ethnic Group Distribution by Year</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={data.collectionYearEthnicGroupDistribution}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="year" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    {data.ethnicGroups.map((group, index) => (
+                      <Bar
+                        key={group}
+                        dataKey={group}
+                        stackId="a"
+                        fill={COLORS[index % COLORS.length]}
+                        name={group}
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Education Distribution by Year</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={data.collectionYearEducationDistribution}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="year" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    {data.educationLevels.map((level, index) => (
+                      <Bar
+                        key={level}
+                        dataKey={level}
+                        stackId="a"
+                        fill={COLORS[index % COLORS.length]}
+                        name={level}
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Occupation Distribution by Year</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={data.collectionYearOccupationDistribution}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="year" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    {data.occupations.map((occ, index) => (
+                      <Bar
+                        key={occ}
+                        dataKey={occ}
+                        stackId="a"
+                        fill={COLORS[index % COLORS.length]}
+                        name={occ}
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
           <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1 mt-6">
             <Card>
               <CardHeader>
