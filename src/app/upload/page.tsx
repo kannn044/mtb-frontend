@@ -3,7 +3,7 @@
 import API_URL from '@/lib/api';
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, X, Loader2, FileArchive, CalendarIcon, FileSpreadsheet, FileText } from "lucide-react";
+import { Upload, X, Loader2, FileArchive, CalendarIcon, FileSpreadsheet, FileText, Play } from "lucide-react"; // เพิ่ม Play
 import { toast } from "sonner";
 
 // --- Types สำหรับ Location ---
@@ -54,6 +54,10 @@ export default function UploadPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null); // สำหรับ .gz
   const excelInputRef = useRef<HTMLInputElement>(null); // สำหรับ .xlsx
+
+  const [showRunModal, setShowRunModal] = useState(false);
+  const [previewSamples, setPreviewSamples] = useState<string[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
 
   // --- 1. Fetch Provinces ---
   useEffect(() => {
@@ -141,6 +145,15 @@ export default function UploadPage() {
       if (validFiles.length < selectedFiles.length) {
         toast.warning(`Skipped non-.gz files`);
       }
+
+      // --- LOGIC: Limit files for Single Entry ---
+      if (activeTab === "single") {
+        if (files.length + validFiles.length > 2) {
+          toast.error("Single Entry mode allows a maximum of 2 .gz files.");
+          return;
+        }
+      }
+
       if (validFiles.length > 0) {
         setFiles((prev) => [...prev, ...validFiles]);
       }
@@ -188,7 +201,19 @@ export default function UploadPage() {
   };
 
   const removeFile = (index: number) => {
+    // ถ้าไฟล์ถูกลบ ต้องเคลียร์ค่าใน metadata ของ fastq ด้วยเพื่อป้องกันข้อมูลผิดพลาด
+    const fileToRemove = files[index];
     setFiles((prev) => prev.filter((_, i) => i !== index));
+    
+    // Optional: Clear selection if the removed file was selected
+    if(activeTab === "single") {
+        setMetadata(prev => {
+            const newState = { ...prev };
+            if (newState.fastq_1 === fileToRemove.name) newState.fastq_1 = "";
+            if (newState.fastq_2 === fileToRemove.name) newState.fastq_2 = "";
+            return newState;
+        });
+    }
   };
 
   // --- MAIN SUBMIT ---
@@ -206,10 +231,20 @@ export default function UploadPage() {
 
     // แยก Logic ตาม Tab
     if (activeTab === "single") {
+        // Validate required fields
         if(!metadata.patient_id || !metadata.sample_id) {
             toast.error("กรุณากรอก Patient ID และ Sample ID");
             return;
         }
+        if(!metadata.fastq_1 || !metadata.fastq_2) {
+            toast.error("กรุณาเลือกไฟล์ FastQ 1 และ FastQ 2");
+            return;
+        }
+        if(metadata.fastq_1 === metadata.fastq_2) {
+            toast.error("FastQ File 1 และ FastQ File 2 ต้องไม่เหมือนกัน");
+            return;
+        }
+
         const metadataToSubmit = {
             ...metadata,
             collection_date: formatDateForSubmit(metadata.collection_date || ""),
@@ -234,7 +269,8 @@ export default function UploadPage() {
 
     try {
       if(activeTab === "single") {
-
+        console.log(formData.get("metadata"));
+        
         const response = await fetch(`${API_URL}/api/upload/single`, {
           method: "POST",
           headers: { 'Authorization': `Bearer ${token}` },
@@ -255,7 +291,7 @@ export default function UploadPage() {
         setExcelFile(null);
         setSelectedPcode("");
         setDistrictList([]);
-      }else if(activeTab === "batch") {        
+      } else if(activeTab === "batch") {        
         const response = await fetch(`${API_URL}/api/upload/batch`, {
           method: "POST",
           headers: { 'Authorization': `Bearer ${token}` },
@@ -282,6 +318,58 @@ export default function UploadPage() {
     }
   };
 
+  const handleOpenRunModal = async () => {
+      try {
+          const token = sessionStorage.getItem('token');
+          const res = await fetch(`${API_URL}/api/upload/run/preview`, {
+              method: 'GET',
+              headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (res.ok) {
+              const data = await res.json();
+              setPreviewSamples(data.samples || []);
+              setShowRunModal(true);
+          } else {
+              toast.error("Failed to load preview data");
+          }
+      } catch (error) {
+          console.error(error);
+          toast.error("Error connecting to server");
+      }
+  };
+
+  const handleExecuteRun = async () => {
+      setIsRunning(true);
+      try {
+          const token = sessionStorage.getItem('token');
+          const res = await fetch(`${API_URL}/api/upload/run/execute`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${token}` },
+          });
+          
+          if (res.ok) {
+              const result = await res.json();
+              toast.success(`Pipeline started! (ID: ${result.run_id})`);
+              
+              // Close Modal & Reset Form (เพราะไฟล์ถูกย้ายไปแล้ว)
+              setShowRunModal(false);
+              setFiles([]);
+              setMetadata({});
+              setExcelFile(null);
+              // อาจจะ refresh preview ใหม่เพื่อให้ list ว่างเปล่า
+              setPreviewSamples([]); 
+          } else {
+              const err = await res.json();
+              toast.error(err.message || "Failed to start process");
+          }
+      } catch (error) {
+          console.error(error);
+          toast.error("Something went wrong");
+      } finally {
+          setIsRunning(false);
+      }
+  };
+
   // Styles
   const labelStyle = "text-sm font-semibold mb-1.5 block text-slate-700";
   const inputStyle = "flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-all";
@@ -293,23 +381,38 @@ export default function UploadPage() {
     <div className="container mx-auto py-10 px-4">
       <h1 className="text-3xl font-bold mb-6 text-slate-900">Patient Data Entry</h1>
       
-      {/* Tab Navigation */}
-      <div className="flex space-x-2 mb-6 max-w-6xl mx-auto">
-        <button
-          onClick={() => setActiveTab("single")}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "single" ? tabActive : tabInactive}`}
+      {/* --- [แก้ไขจุดที่ 1] Tab Navigation & Top Action Bar --- */}
+      <div className="flex flex-col sm:flex-row justify-between items-end mb-6 max-w-6xl mx-auto gap-4">
+        
+        {/* Left: Tabs */}
+        <div className="flex space-x-2 w-full sm:w-auto">
+          <button
+            onClick={() => {
+              setActiveTab("single");
+            }}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "single" ? tabActive : tabInactive}`}
+          >
+              <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" /> Single Entry
+              </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("batch")}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "batch" ? tabActive : tabInactive}`}
+          >
+              <div className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-4 w-4" /> Batch Upload (Excel)
+              </div>
+          </button>
+        </div>
+
+        {/* Right: Run Process Button (ย้ายมาตรงนี้) */}
+        <button 
+            type="button" 
+            onClick={handleOpenRunModal}
+            className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 h-10 px-6 py-2 transition-colors shadow-sm w-full sm:w-auto"
         >
-            <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4" /> Single Entry
-            </div>
-        </button>
-        <button
-          onClick={() => setActiveTab("batch")}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "batch" ? tabActive : tabInactive}`}
-        >
-            <div className="flex items-center gap-2">
-                <FileSpreadsheet className="h-4 w-4" /> Batch Upload (Excel)
-            </div>
+            <Play className="h-4 w-4 mr-2" /> Run Process
         </button>
       </div>
 
@@ -342,6 +445,48 @@ export default function UploadPage() {
                       />
                    </div>
                 ))}
+
+                {/* FastQ 1 */}
+                <div>
+                   <label className={labelStyle}>FastQ File 1 <span className="text-red-500">*</span></label>
+                   <div className="relative">
+                      <select 
+                          name="fastq_1" 
+                          value={metadata.fastq_1 || ""} 
+                          onChange={handleInputChange}
+                          className={`${inputStyle} appearance-none cursor-pointer`}
+                          disabled={isLoading || files.length === 0}
+                      >
+                          <option value="">
+                              {files.length === 0 ? "Upload .gz files first" : "Select File 1"}
+                          </option>
+                          {files.map((f, idx) => (
+                              <option key={`f1-${idx}`} value={f.name}>{f.name}</option>
+                          ))}
+                      </select>
+                   </div>
+                </div>
+
+                {/* FastQ 2 */}
+                <div>
+                   <label className={labelStyle}>FastQ File 2 <span className="text-red-500">*</span></label>
+                   <div className="relative">
+                      <select 
+                          name="fastq_2" 
+                          value={metadata.fastq_2 || ""} 
+                          onChange={handleInputChange}
+                          className={`${inputStyle} appearance-none cursor-pointer`}
+                          disabled={isLoading || files.length === 0}
+                      >
+                          <option value="">
+                              {files.length === 0 ? "Upload .gz files first" : "Select File 2"}
+                          </option>
+                          {files.map((f, idx) => (
+                              <option key={`f2-${idx}`} value={f.name}>{f.name}</option>
+                          ))}
+                      </select>
+                   </div>
+                </div>
                 
                 {/* Date */}
                 <div>
@@ -486,6 +631,7 @@ export default function UploadPage() {
             <div className="bg-slate-50 p-6 rounded-lg border border-dashed border-slate-300">
               <label className="text-base font-semibold mb-4 block text-slate-800">
                 Sequencing Files Upload (.gz) <span className="text-red-500">*</span>
+                {activeTab === "single" && <span className="text-xs font-normal text-slate-500 ml-2">(Max 2 files for Single Entry)</span>}
               </label>
               
               <div 
@@ -535,9 +681,66 @@ export default function UploadPage() {
                   }
                 </button>
             </div>
+            
+            {/* [แก้ไขจุดที่ 2] ลบส่วนปุ่ม Run ด้านล่างนี้ออกไปแล้ว */}
+
           </form>
         </CardContent>
       </Card>
+
+      {/* --- MODAL (คงเดิม) --- */}
+      {showRunModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                        <Play className="h-4 w-4 text-emerald-600" /> Run Process Pipeline
+                    </h3>
+                    <button onClick={() => setShowRunModal(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+                
+                <div className="p-6">
+                    <p className="text-sm text-slate-600 mb-3">
+                        The following <strong>{previewSamples.length} samples</strong> will be moved to the processing engine:
+                    </p>
+                    
+                    <div className="bg-slate-50 border rounded-md p-3 max-h-60 overflow-y-auto mb-6">
+                        {previewSamples.length > 0 ? (
+                            <ul className="space-y-1">
+                                {previewSamples.map((id, idx) => (
+                                    <li key={idx} className="text-sm text-slate-700 border-b border-slate-100 last:border-0 pb-1 last:pb-0">
+                                        • {id}
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-slate-400 italic text-center py-4">No samples found in staging.</p>
+                        )}
+                    </div>
+
+                    <div className="flex gap-3 justify-end">
+                        <button 
+                            onClick={() => setShowRunModal(false)}
+                            className="px-4 py-2 rounded-md text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 transition-colors"
+                            disabled={isRunning}
+                        >
+                            Close
+                        </button>
+                        <button 
+                            onClick={handleExecuteRun}
+                            disabled={isRunning || previewSamples.length === 0}
+                            className="px-4 py-2 rounded-md text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isRunning ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            {isRunning ? "Starting..." : "Run Process"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }
