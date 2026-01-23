@@ -20,8 +20,9 @@ export function Navbar() {
 
   const menuItems = [
     { href: "/dashboard", label: "Dashboard" },
+    { href: "/download", label: "Download" },
     { href: "/upload", label: "Upload" },
-    { href: "/user-management", label: "User Management" },
+    { href: "/user-management", label: "Usermanagement" },
   ];
 
   const handleLogout = () => {

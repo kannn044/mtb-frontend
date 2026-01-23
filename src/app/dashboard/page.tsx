@@ -1,15 +1,17 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import API_URL from "@/lib/api";
 import {
   BarChart,
@@ -26,7 +28,7 @@ import {
 } from "recharts";
 import BoxPlotChart from "@/components/ui/BoxPlotChart";
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const ThailandMap = dynamic(() => import("@/components/ui/ThailandMap"), {
   ssr: false,
@@ -125,6 +127,101 @@ interface TransformedData {
     [occupation: string]: string | number;
   }[];
   occupations: string[];
+}
+
+type DashboardFilters = {
+  province: string;
+  collectionDate: string; // YYYY-MM-DD
+  majorLineage: string;
+  overallDRGenotype: string;
+  lineage: string;
+};
+
+type FilterKey = keyof DashboardFilters;
+
+const normalizeValue = (value: string | undefined | null) =>
+  (value ?? "").toString().trim() || "Unknown";
+
+const normalizeDate = (value: string | undefined | null) => {
+  const raw = (value ?? "").toString().trim();
+  if (!raw) return "";
+
+  if (raw.includes("T")) return raw.split("T")[0] ?? "";
+  if (raw.includes(" ")) return raw.split(" ")[0] ?? "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+};
+
+const applyFilters = (
+  rows: RawClusterData[],
+  filters: DashboardFilters,
+  exclude?: FilterKey
+) => {
+  return rows.filter((row) => {
+    if (exclude !== "province" && filters.province) {
+      if (normalizeValue(row.province) !== filters.province) return false;
+    }
+    if (exclude !== "majorLineage" && filters.majorLineage) {
+      if (normalizeValue(row.major_lineage) !== filters.majorLineage) return false;
+    }
+    if (exclude !== "lineage" && filters.lineage) {
+      if (normalizeValue(row.lineage) !== filters.lineage) return false;
+    }
+    if (exclude !== "overallDRGenotype" && filters.overallDRGenotype) {
+      if (normalizeValue(row.overall_DR_genotype) !== filters.overallDRGenotype)
+        return false;
+    }
+    if (exclude !== "collectionDate" && filters.collectionDate) {
+      const rowDate = normalizeDate(row.collection_date);
+      if (!rowDate || rowDate !== filters.collectionDate) return false;
+    }
+
+    return true;
+  });
+};
+
+function FilterDropdown({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (next: string) => void;
+}) {
+  const radioValue = value || "__ALL__";
+
+  return (
+    <div className="space-y-1">
+      <Label>{label}</Label>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="w-full justify-between">
+            <span className="truncate">{value || "All"}</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-64 max-h-72 overflow-auto">
+          <DropdownMenuRadioGroup
+            value={radioValue}
+            onValueChange={(next) => onChange(next === "__ALL__" ? "" : next)}
+          >
+            <DropdownMenuRadioItem value="__ALL__">All</DropdownMenuRadioItem>
+            <DropdownMenuSeparator />
+            {options.map((opt) => (
+              <DropdownMenuRadioItem key={opt} value={opt}>
+                {opt}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
 }
 
 const transformBackendData = (
@@ -392,9 +489,16 @@ const transformBackendData = (
 };
 
 export default function DashboardPage() {
-  const [data, setData] = useState<TransformedData | null>(null);
+  const [rawData, setRawData] = useState<RawClusterData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [filters, setFilters] = useState<DashboardFilters>({
+    province: "",
+    collectionDate: "",
+    majorLineage: "",
+    overallDRGenotype: "",
+    lineage: "",
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -404,8 +508,7 @@ export default function DashboardPage() {
           throw new Error("Failed to fetch data");
         }
         const result: RawClusterData[] = await response.json();
-        const transformed = transformBackendData(result);
-        setData(transformed);
+        setRawData(result);
       } catch (error) {
         setError(error as Error);
       } finally {
@@ -416,35 +519,235 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  if (error) {
-    return <div>Error: {error.message}</div>;
-  }
+  const scopedForProvince = useMemo(
+    () => applyFilters(rawData, filters, "province"),
+    [rawData, filters]
+  );
+  const scopedForCollectionDate = useMemo(
+    () => applyFilters(rawData, filters, "collectionDate"),
+    [rawData, filters]
+  );
+  const scopedForMajorLineage = useMemo(
+    () => applyFilters(rawData, filters, "majorLineage"),
+    [rawData, filters]
+  );
+  const scopedForLineage = useMemo(
+    () => applyFilters(rawData, filters, "lineage"),
+    [rawData, filters]
+  );
+  const scopedForOverallDRGenotype = useMemo(
+    () => applyFilters(rawData, filters, "overallDRGenotype"),
+    [rawData, filters]
+  );
+
+  const provinceOptions = useMemo(() => {
+    const set = new Set<string>();
+    scopedForProvince.forEach((r) => set.add(normalizeValue(r.province)));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [scopedForProvince]);
+
+  const majorLineageOptions = useMemo(() => {
+    const set = new Set<string>();
+    scopedForMajorLineage.forEach((r) => set.add(normalizeValue(r.major_lineage)));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [scopedForMajorLineage]);
+
+  const lineageOptions = useMemo(() => {
+    const set = new Set<string>();
+    scopedForLineage.forEach((r) => set.add(normalizeValue(r.lineage)));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [scopedForLineage]);
+
+  const overallDRGenotypeOptions = useMemo(() => {
+    const set = new Set<string>();
+    scopedForOverallDRGenotype.forEach((r) =>
+      set.add(normalizeValue(r.overall_DR_genotype))
+    );
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [scopedForOverallDRGenotype]);
+
+  const collectionDateOptions = useMemo(() => {
+    const set = new Set<string>();
+    scopedForCollectionDate.forEach((r) => {
+      const d = normalizeDate(r.collection_date);
+      if (d) set.add(d);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [scopedForCollectionDate]);
+
+  const filteredRawData = useMemo(() => {
+    if (!rawData.length) return rawData;
+    return applyFilters(rawData, filters);
+  }, [filters, rawData]);
+
+  useEffect(() => {
+    if (!rawData.length) return;
+
+    const provinceSet = new Set(provinceOptions);
+    const majorLineageSet = new Set(majorLineageOptions);
+    const lineageSet = new Set(lineageOptions);
+    const overallSet = new Set(overallDRGenotypeOptions);
+    const dateSet = new Set(collectionDateOptions);
+
+    setFilters((prev) => {
+      const next: DashboardFilters = { ...prev };
+      let changed = false;
+
+      if (next.province && !provinceSet.has(next.province)) {
+        next.province = "";
+        changed = true;
+      }
+      if (next.majorLineage && !majorLineageSet.has(next.majorLineage)) {
+        next.majorLineage = "";
+        changed = true;
+      }
+      if (next.lineage && !lineageSet.has(next.lineage)) {
+        next.lineage = "";
+        changed = true;
+      }
+      if (next.overallDRGenotype && !overallSet.has(next.overallDRGenotype)) {
+        next.overallDRGenotype = "";
+        changed = true;
+      }
+      if (next.collectionDate && !dateSet.has(next.collectionDate)) {
+        next.collectionDate = "";
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [
+    rawData.length,
+    provinceOptions,
+    majorLineageOptions,
+    lineageOptions,
+    overallDRGenotypeOptions,
+    collectionDateOptions,
+  ]);
+
+  const data: TransformedData | null = useMemo(() => {
+    if (!filteredRawData.length) return null;
+    return transformBackendData(filteredRawData);
+  }, [filteredRawData]);
+
+  const canReset =
+    !!filters.province ||
+    !!filters.collectionDate ||
+    !!filters.majorLineage ||
+    !!filters.overallDRGenotype ||
+    !!filters.lineage;
 
 
   return (
     <div className="container mx-auto py-10">
       <h1 className="text-3xl font-bold mb-6">MTB Cluster Dashboard</h1>
+      {error && <div>Error: {error.message}</div>}
+      {!error && loading && <div>Loading...</div>}
+      {!error && !loading && !data && <div>No data available</div>}
 
-      {loading && <div>Loading...</div>}
-      {!loading && !data && <div>No data available</div>}
-
-      {data && (
+      {!error && data && (
         <>
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Filters</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+                <FilterDropdown
+                  label="Province"
+                  value={filters.province}
+                  options={provinceOptions}
+                  onChange={(province) =>
+                    setFilters((prev) => ({ ...prev, province }))
+                  }
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="collection-date">Collection date</Label>
+                  <Input
+                    id="collection-date"
+                    type="date"
+                    value={filters.collectionDate}
+                    onChange={(e) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        collectionDate: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <FilterDropdown
+                  label="Major lineage"
+                  value={filters.majorLineage}
+                  options={majorLineageOptions}
+                  onChange={(majorLineage) =>
+                    setFilters((prev) => ({ ...prev, majorLineage }))
+                  }
+                />
+                <FilterDropdown
+                  label="Lineage"
+                  value={filters.lineage}
+                  options={lineageOptions}
+                  onChange={(lineage) =>
+                    setFilters((prev) => ({ ...prev, lineage }))
+                  }
+                />
+                <FilterDropdown
+                  label="Overall DR genotype"
+                  value={filters.overallDRGenotype}
+                  options={overallDRGenotypeOptions}
+                  onChange={(overallDRGenotype) =>
+                    setFilters((prev) => ({ ...prev, overallDRGenotype }))
+                  }
+                />
+                <div className="flex items-end">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    disabled={!canReset}
+                    onClick={() =>
+                      setFilters({
+                        province: "",
+                        collectionDate: "",
+                        majorLineage: "",
+                        overallDRGenotype: "",
+                        lineage: "",
+                      })
+                    }
+                  >
+                    Reset
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-            {data.riskLevelSummary && data.riskLevelSummary
-              .filter(item => !["Other", "Sensitive", "HR-TB", "MDR-TB", "RR-TB", "Pre-XDR-TB", "XDR-TB"].includes(item.title))
-              .map((item, index) => (
-              <Card key={index}>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">
-                    {item.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{item.value}</div>
-                </CardContent>
-              </Card>
-            ))}
+            {data.riskLevelSummary &&
+              data.riskLevelSummary
+                .filter(
+                  (item) =>
+                    ![
+                      "Other",
+                      "Sensitive",
+                      "HR-TB",
+                      "MDR-TB",
+                      "RR-TB",
+                      "Pre-XDR-TB",
+                      "XDR-TB",
+                    ].includes(item.title)
+                )
+                .map((item, index) => (
+                  <Card key={index}>
+                    <CardHeader>
+                      <CardTitle className="text-sm font-medium">
+                        {item.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{item.value}</div>
+                    </CardContent>
+                  </Card>
+                ))}
           </div>
 
 

@@ -9,7 +9,6 @@ import {
   BarChart,
   Bar,
   Rectangle,
-  Line, // Import Line for whiskers
 } from 'recharts';
 
 interface BoxPlotData {
@@ -27,8 +26,30 @@ interface BoxPlotChartProps {
   height?: string | number;
 }
 
-const CustomBoxPlot: React.FC<any> = (props) => {
-  const { x, y, width, fill, q1, q3, median, min, max } = props;
+type CustomBoxPlotProps = {
+  x?: number;
+  y?: number;
+  width?: number;
+  fill?: string;
+  q1?: number;
+  q3?: number;
+  median?: number;
+  min?: number;
+  max?: number;
+};
+
+const CustomBoxPlot: React.FC<CustomBoxPlotProps> = (props) => {
+  const {
+    x = 0,
+    y = 0,
+    width = 0,
+    fill = '#8884d8',
+    q1 = 0,
+    q3 = 0,
+    median = 0,
+    min = 0,
+    max = 0,
+  } = props;
 
   // Calculate the x-coordinates for the box and whiskers
   const boxWidth = width * 0.6; // Make box a bit narrower than the full bar width
