@@ -131,7 +131,8 @@ interface TransformedData {
 
 type DashboardFilters = {
   province: string;
-  collectionDate: string; // YYYY-MM-DD
+  collectionDateStart: string; // YYYY-MM-DD
+  collectionDateEnd: string; // YYYY-MM-DD
   majorLineage: string;
   overallDRGenotype: string;
   lineage: string;
@@ -141,6 +142,28 @@ type FilterKey = keyof DashboardFilters;
 
 const normalizeValue = (value: string | undefined | null) =>
   (value ?? "").toString().trim() || "Unknown";
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const coerceRawClusterRows = (payload: unknown): RawClusterData[] => {
+  if (Array.isArray(payload)) return payload as RawClusterData[];
+  if (!isRecord(payload)) return [];
+
+  const candidates: unknown[] = [
+    payload.data,
+    payload.rows,
+    payload.result,
+    payload.results,
+    payload.items,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate as RawClusterData[];
+  }
+
+  return [];
+};
 
 const normalizeDate = (value: string | undefined | null) => {
   const raw = (value ?? "").toString().trim();
@@ -156,11 +179,12 @@ const normalizeDate = (value: string | undefined | null) => {
 };
 
 const applyFilters = (
-  rows: RawClusterData[],
+  rows: RawClusterData[] | null | undefined,
   filters: DashboardFilters,
   exclude?: FilterKey
 ) => {
-  return rows.filter((row) => {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  return safeRows.filter((row) => {
     if (exclude !== "province" && filters.province) {
       if (normalizeValue(row.province) !== filters.province) return false;
     }
@@ -174,9 +198,21 @@ const applyFilters = (
       if (normalizeValue(row.overall_DR_genotype) !== filters.overallDRGenotype)
         return false;
     }
-    if (exclude !== "collectionDate" && filters.collectionDate) {
+    if (
+      exclude !== "collectionDateStart" &&
+      exclude !== "collectionDateEnd" &&
+      filters.collectionDateStart &&
+      filters.collectionDateEnd
+    ) {
       const rowDate = normalizeDate(row.collection_date);
-      if (!rowDate || rowDate !== filters.collectionDate) return false;
+      if (!rowDate) return false;
+
+      const start = filters.collectionDateStart;
+      const end = filters.collectionDateEnd;
+
+      const min = start <= end ? start : end;
+      const max = start <= end ? end : start;
+      if (rowDate < min || rowDate > max) return false;
     }
 
     return true;
@@ -494,7 +530,8 @@ export default function DashboardPage() {
   const [error, setError] = useState<Error | null>(null);
   const [filters, setFilters] = useState<DashboardFilters>({
     province: "",
-    collectionDate: "",
+    collectionDateStart: "",
+    collectionDateEnd: "",
     majorLineage: "",
     overallDRGenotype: "",
     lineage: "",
@@ -503,12 +540,16 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/csv`);
+        const response = await fetch(`${API_URL}/api/txt`);
         if (!response.ok) {
           throw new Error("Failed to fetch data");
         }
-        const result: RawClusterData[] = await response.json();
-        setRawData(result);
+        const json: unknown = await response.json();
+        const rows = coerceRawClusterRows(json);
+        if (rows.length === 0) {
+          throw new Error("Unexpected data format from API");
+        }
+        setRawData(rows);
       } catch (error) {
         setError(error as Error);
       } finally {
@@ -521,10 +562,6 @@ export default function DashboardPage() {
 
   const scopedForProvince = useMemo(
     () => applyFilters(rawData, filters, "province"),
-    [rawData, filters]
-  );
-  const scopedForCollectionDate = useMemo(
-    () => applyFilters(rawData, filters, "collectionDate"),
     [rawData, filters]
   );
   const scopedForMajorLineage = useMemo(
@@ -566,15 +603,6 @@ export default function DashboardPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [scopedForOverallDRGenotype]);
 
-  const collectionDateOptions = useMemo(() => {
-    const set = new Set<string>();
-    scopedForCollectionDate.forEach((r) => {
-      const d = normalizeDate(r.collection_date);
-      if (d) set.add(d);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [scopedForCollectionDate]);
-
   const filteredRawData = useMemo(() => {
     if (!rawData.length) return rawData;
     return applyFilters(rawData, filters);
@@ -587,8 +615,6 @@ export default function DashboardPage() {
     const majorLineageSet = new Set(majorLineageOptions);
     const lineageSet = new Set(lineageOptions);
     const overallSet = new Set(overallDRGenotypeOptions);
-    const dateSet = new Set(collectionDateOptions);
-
     setFilters((prev) => {
       const next: DashboardFilters = { ...prev };
       let changed = false;
@@ -609,10 +635,6 @@ export default function DashboardPage() {
         next.overallDRGenotype = "";
         changed = true;
       }
-      if (next.collectionDate && !dateSet.has(next.collectionDate)) {
-        next.collectionDate = "";
-        changed = true;
-      }
 
       return changed ? next : prev;
     });
@@ -622,7 +644,6 @@ export default function DashboardPage() {
     majorLineageOptions,
     lineageOptions,
     overallDRGenotypeOptions,
-    collectionDateOptions,
   ]);
 
   const data: TransformedData | null = useMemo(() => {
@@ -632,7 +653,8 @@ export default function DashboardPage() {
 
   const canReset =
     !!filters.province ||
-    !!filters.collectionDate ||
+    !!filters.collectionDateStart ||
+    !!filters.collectionDateEnd ||
     !!filters.majorLineage ||
     !!filters.overallDRGenotype ||
     !!filters.lineage;
@@ -662,15 +684,43 @@ export default function DashboardPage() {
                   }
                 />
                 <div className="space-y-1">
-                  <Label htmlFor="collection-date">Collection date</Label>
+                  <Label htmlFor="collection-date-start">Collection date (start)</Label>
                   <Input
-                    id="collection-date"
+                    id="collection-date-start"
                     type="date"
-                    value={filters.collectionDate}
+                    value={filters.collectionDateStart}
+                    max={filters.collectionDateEnd || undefined}
+                    onChange={(e) =>
+                      setFilters((prev) => {
+                        const nextStart = e.target.value;
+                        const next: typeof prev = {
+                          ...prev,
+                          collectionDateStart: nextStart,
+                        };
+                        if (
+                          next.collectionDateEnd &&
+                          nextStart &&
+                          nextStart > next.collectionDateEnd
+                        ) {
+                          next.collectionDateEnd = "";
+                        }
+                        return next;
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="collection-date-end">Collection date (end)</Label>
+                  <Input
+                    id="collection-date-end"
+                    type="date"
+                    value={filters.collectionDateEnd}
+                    min={filters.collectionDateStart || undefined}
+                    disabled={!filters.collectionDateStart}
                     onChange={(e) =>
                       setFilters((prev) => ({
                         ...prev,
-                        collectionDate: e.target.value,
+                        collectionDateEnd: e.target.value,
                       }))
                     }
                   />
@@ -707,7 +757,8 @@ export default function DashboardPage() {
                     onClick={() =>
                       setFilters({
                         province: "",
-                        collectionDate: "",
+                        collectionDateStart: "",
+                        collectionDateEnd: "",
                         majorLineage: "",
                         overallDRGenotype: "",
                         lineage: "",

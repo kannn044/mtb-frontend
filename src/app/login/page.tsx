@@ -29,6 +29,7 @@ export default function LoginPage() {
       if (response.ok) {
         const data = await response.json();
         sessionStorage.setItem('token', data.token);
+        localStorage.setItem('isLoggedIn', 'true');
         router.push('/dashboard');
       } else {
         toast.error('Invalid credentials');
@@ -37,6 +38,11 @@ export default function LoginPage() {
       console.error('Login error:', error);
       toast.error('An error occurred during login');
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void handleLogin();
   };
 
   return (
@@ -48,7 +54,7 @@ export default function LoginPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input
@@ -68,10 +74,10 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            <Button onClick={handleLogin} className="w-full">
+            <Button type="submit" onClick={handleLogin} className="w-full">
               Login
             </Button>
-          </div>
+          </form>
         </CardContent>
       </Card>
     </div>

@@ -69,28 +69,6 @@ export default function UserManagementPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleDeleteUser = async (id: number) => {
-    try {
-      const token = sessionStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/users/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete user');
-      } else {
-        toast.success('User deleted successfully');
-      }
-
-      fetchUsers();
-    } catch (error) {
-      toast.error('Failed to delete user');
-      console.error('Error deleting user:', error);
-    }
-  };
 
   const handleSaveUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -194,13 +172,6 @@ export default function UserManagementPage() {
                     >
                       Edit
                     </Button>
-                    {/* <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteUser(user.id)}
-                    >
-                      Delete
-                    </Button> */}
                   </div>
                 </TableCell>
               </TableRow>

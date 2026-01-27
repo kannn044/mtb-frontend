@@ -66,29 +66,53 @@ const ThailandMap: React.FC<ThailandMapProps> = ({ districtSummary }) => {
     const count = districtSummary[districtNameEn] || 0;
     layer.bindTooltip(`${provinceNameTh} (${districtNameTh}): ${count}`);
 
+    const baseStyle: PathOptions = {
+      fillColor: getColor(String(feature.properties?.amp_en ?? "")),
+      weight: 1,
+      opacity: 1,
+      color: "white",
+      dashArray: "3",
+      fillOpacity: 0.7,
+    };
+
     layer.on({
       mouseover: (e: LeafletEvent) => {
-        const layer = e.target;
-        layer.setStyle({
-          weight: 3,
-          color: "#666",
-          dashArray: "",
-          fillOpacity: 0.7,
-        });
-        layer.bringToFront();
+        const target = e.target as unknown as {
+          setStyle?: (opts: PathOptions) => void;
+          bringToFront?: () => void;
+        };
+
+        if (!target?.setStyle) return;
+        try {
+          target.setStyle({
+            ...baseStyle,
+            weight: 3,
+            color: "#666",
+            dashArray: "",
+            fillOpacity: 0.7,
+          });
+        } catch {
+          // Ignore transient Leaflet DOM errors during remounts
+        }
+
+        if (typeof target.bringToFront === "function") {
+          try {
+            target.bringToFront();
+          } catch {
+            // Ignore transient Leaflet DOM errors during remounts
+          }
+        }
       },
       mouseout: (e: LeafletEvent) => {
-        const layer = e.target;
-        // This is a bit of a hack to get the original style back
-        // A better way would be to reset to the original style
-        // but for this simple case, this works.
-        layer.setStyle({
-          weight: 1,
-          opacity: 1,
-          color: "white",
-          dashArray: "3",
-          fillOpacity: 0.7,
-        });
+        const target = e.target as unknown as {
+          setStyle?: (opts: PathOptions) => void;
+        };
+        if (!target?.setStyle) return;
+        try {
+          target.setStyle(baseStyle);
+        } catch {
+          // Ignore transient Leaflet DOM errors during remounts
+        }
       },
     });
   };
