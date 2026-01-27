@@ -26,6 +26,7 @@ import API_URL from "@/lib/api";
 interface User {
   id: number;
   username: string;
+  email?: string;
   name: string;
   lastname: string;
   status: string;
@@ -34,6 +35,7 @@ interface User {
 
 interface UserPayload {
   username: string;
+  email: string;
   name: string;
   lastname: string;
   status: string;
@@ -77,6 +79,7 @@ export default function UserManagementPage() {
 
     const user: UserPayload = {
       username: formData.get("username") as string,
+      email: formData.get("email") as string,
       name: formData.get("name") as string,
       lastname: formData.get("lastname") as string,
       is_active: formData.get("is_active") === "true",
@@ -149,6 +152,7 @@ export default function UserManagementPage() {
             <TableRow>
               <TableHead>ID</TableHead>
               <TableHead>Username</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Full Name</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Is Active</TableHead>
@@ -160,6 +164,7 @@ export default function UserManagementPage() {
               <TableRow key={user.id}>
                 <TableCell>{user.id}</TableCell>
                 <TableCell>{user.username}</TableCell>
+                <TableCell>{user.email || "-"}</TableCell>
                 <TableCell>{user.name} {user.lastname}</TableCell>
                 <TableCell>{user.status}</TableCell>
                 <TableCell>{user.is_active ? 'Yes' : 'No'}</TableCell>
@@ -194,6 +199,16 @@ export default function UserManagementPage() {
                 id="username"
                 name="username"
                 defaultValue={currentUser?.username}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                defaultValue={currentUser?.email}
                 required
               />
             </div>

@@ -350,6 +350,28 @@ export default function UploadPage() {
           if (res.ok) {
               const result = await res.json();
               toast.success(`Pipeline started! (ID: ${result.run_id})`);
+
+              try {
+                const emailRes = await fetch(`${API_URL}/api/email/send`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    to: "peemppk5538@gmail.com",
+                    subject: "MTB-Cluster Web: Processing Started",
+                    text:
+                      `Your MTB-Cluster file processing has started successfully.` +
+                      `${result?.run_id ? `\n\nRun ID: ${result.run_id}` : ""}` +
+                      `\n\nYou can check progress and download results from the Download tab once processing is complete.`,
+                  }),
+                });
+                if (!emailRes.ok) {
+                  toast.error("Pipeline started, but email notification failed.");
+                }
+              } catch {
+                toast.error("Pipeline started, but email notification failed.");
+              }
               
               // Close Modal & Reset Form (เพราะไฟล์ถูกย้ายไปแล้ว)
               setShowRunModal(false);
