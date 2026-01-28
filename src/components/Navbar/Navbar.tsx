@@ -60,10 +60,17 @@ export function Navbar() {
   const router = useRouter();
 
   const [token, setToken] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("token");
-    Promise.resolve().then(() => setToken(stored));
+    if (stored) {
+      setToken(stored);
+      const payload = decodeJwtPayload(stored);
+      if (payload) {
+        setUserName(payload.username as string || payload.name as string || null);
+      }
+    }
   }, []);
 
   const hasToken = !!token;
@@ -117,8 +124,9 @@ export function Navbar() {
             {hasToken ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon" className="flex items-center space-x-2">
                     <User className="h-5 w-5" />
+                    {/* {userName && <span className="text-sm">{userName}</span>} */}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -129,6 +137,9 @@ export function Navbar() {
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Link href="/config">Configuration</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Link href="/change-password">Change Password</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
