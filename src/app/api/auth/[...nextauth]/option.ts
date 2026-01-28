@@ -4,6 +4,9 @@ import { JWT } from 'next-auth/jwt';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
 export const nextAuthOptions: NextAuthOptions = {
+    // It is used to sign and encrypt cookies, tokens, and other data.
+    // It should be a long, random string stored as an environment variable.
+    secret: 'your-secret-goes-here',
     providers: [
         CredentialsProvider({
             name: 'Credentials',
