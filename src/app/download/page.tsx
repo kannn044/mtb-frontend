@@ -9,9 +9,21 @@ import { useEffect, useMemo, useState } from "react";
 type DownloadRun = {
   id: string;
   status?: string;
-  created_at?: string;
-  updated_at?: string;
+  createdAt?: string;
+  updatedAt?: string;
   name?: string;
+  overallReportUrl?: string;
+};
+
+const toSameOriginApiUrl = (href: string) => {
+  if (href.startsWith("/api/")) return href;
+  try {
+    const url = new URL(href);
+    if (url.pathname.startsWith("/api/")) return `${url.pathname}${url.search}`;
+  } catch {
+    // ignore
+  }
+  return href;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -38,12 +50,34 @@ const coerceRuns = (payload: unknown): DownloadRun[] => {
 const getAuthHeaders = (): Record<string, string> => {
   const headers: Record<string, string> = {};
   try {
-    const token = sessionStorage.getItem("token");
+    const token =
+      localStorage.getItem("token") ??
+      sessionStorage.getItem("token");
     if (token) headers.Authorization = `Bearer ${token}`;
+
+    // Ensure new tabs can read the token.
+    if (token && !localStorage.getItem("token")) {
+      localStorage.setItem("token", token);
+    }
   } catch {
     // ignore
   }
   return headers;
+};
+
+const getToken = () => {
+  try {
+    return localStorage.getItem("token") ?? sessionStorage.getItem("token");
+  } catch {
+    return null;
+  }
+};
+
+const setTokenCookie = (token: string) => {
+  // Used for new-tab navigation where Authorization headers cannot be set.
+  const safeValue = encodeURIComponent(token);
+  const secure = typeof window !== "undefined" && window.location.protocol === "https:";
+  document.cookie = `token=${safeValue}; Path=/; SameSite=Lax${secure ? "; Secure" : ""}`;
 };
 
 const getFilenameFromContentDisposition = (contentDisposition: string | null) => {
@@ -104,8 +138,8 @@ export default function DownloadPage() {
   const sortedRuns = useMemo(() => {
     const copy = [...runs];
     copy.sort((a, b) => {
-      const ax = a.updated_at ?? a.created_at ?? "";
-      const bx = b.updated_at ?? b.created_at ?? "";
+      const ax = a.updatedAt ?? a.createdAt ?? "";
+      const bx = b.updatedAt ?? b.createdAt ?? "";
       return bx.localeCompare(ax);
     });
     return copy;
@@ -157,6 +191,16 @@ export default function DownloadPage() {
     }
   };
 
+  const handleViewReport = (run: DownloadRun) => {
+    if (!run.overallReportUrl) return;
+
+    const token = getToken();
+    if (token) setTokenCookie(token);
+
+    const url = toSameOriginApiUrl(run.overallReportUrl);
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="container mx-auto py-10 px-4">
       <h1 className="text-3xl font-bold mb-6 text-slate-900">Download</h1>
@@ -199,7 +243,8 @@ export default function DownloadPage() {
 
                 {!loading &&
                   sortedRuns.map((run) => {
-                    const updated = run.updated_at ?? run.created_at ?? "";
+                    const updated = run.updatedAt ?? run.createdAt ?? "";
+                    const hasReport = Boolean(run.overallReportUrl);
                     return (
                       <tr key={run.id} className="border-b border-slate-100">
                         <td className="py-3 pr-4 text-slate-900">
@@ -210,14 +255,26 @@ export default function DownloadPage() {
                         </td>
                         <td className="py-3 pr-4 text-slate-600">{updated || "—"}</td>
                         <td className="py-3 pr-0 text-right">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => handleDownload(run.id)}
-                            disabled={downloadingId === run.id}
-                          >
-                            {downloadingId === run.id ? "Downloading..." : "Download"}
-                          </Button>
+                          <div className="inline-flex items-center justify-end gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleViewReport(run)}
+                              disabled={!hasReport}
+                            >
+                              View report
+                            </Button>
+
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => handleDownload(run.id)}
+                              disabled={downloadingId === run.id}
+                            >
+                              {downloadingId === run.id ? "Downloading..." : "Download"}
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );

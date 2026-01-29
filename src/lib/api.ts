@@ -1,8 +1,12 @@
 const API_URL: string = (() => {
-	// Use the environment variable if it's set, otherwise default to localhost for development.
-	const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://203.157.84.69:3001";
-	// Remove any trailing slashes to prevent double slashes in API calls.
-	return apiUrl.replace(/\/+$/, "");
+	const isDev = process.env.NODE_ENV === "development";
+	const configured = process.env.NEXT_PUBLIC_API_URL;
+
+	// In dev, prefer same-origin requests ("/api/..."), and let Next.js `rewrites()`
+	// proxy them to `http://localhost:3001` to avoid browser CORS.
+	const fallback = isDev ? "" : "http://203.157.84.69:3001";
+	const apiUrl = (configured || fallback).replace(/\/+$/, "");
+	return apiUrl;
 })();
 
 export default API_URL;
