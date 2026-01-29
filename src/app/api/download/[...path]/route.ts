@@ -1,5 +1,5 @@
 const DEV_BACKEND_ORIGIN = "http://localhost:3001";
-const PROD_BACKEND_ORIGIN = "http://203.157.84.69:3001";
+const PROD_BACKEND_ORIGIN = "http://10.1.1.171:3001";
 
 function getBackendOrigin(): string {
 	return process.env.NODE_ENV === "development" ? DEV_BACKEND_ORIGIN : PROD_BACKEND_ORIGIN;
