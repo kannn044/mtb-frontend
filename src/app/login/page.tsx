@@ -74,10 +74,15 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            <Button type="submit" onClick={handleLogin} className="w-full">
+            <Button type="submit" className="w-full">
               Login
             </Button>
           </form>
+          <div className="mt-4 text-center">
+            <Button variant="link" onClick={() => router.push('/register')}>
+              Don't have an account? Register
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
