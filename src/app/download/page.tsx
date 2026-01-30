@@ -192,12 +192,18 @@ export default function DownloadPage() {
   };
 
   const handleViewReport = (run: DownloadRun) => {
-    if (!run.overallReportUrl) return;
-
     const token = getToken();
-    if (token) setTokenCookie(token);
 
-    const url = toSameOriginApiUrl(run.overallReportUrl);
+    if (token) {
+      setTokenCookie(token);
+    } else {
+      toast.error("Authentication token not found.");
+      return;
+    }
+
+    const fileName = "overall_report/overall_wgs_cluster_summary_report.html";
+    const url = `${API_URL}/api/download/runs/${run.id}/report/cluster-view/${fileName}`;
+
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
