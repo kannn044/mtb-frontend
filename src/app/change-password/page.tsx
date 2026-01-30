@@ -11,11 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react"; // Import Eye and EyeOff icons
 
 import API_URL from "@/lib/api";
+import { clearClientAuthStorage } from "@/lib/authStorage";
 
 // This logout function should be consistent with the one in Navbar.tsx
 const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    sessionStorage.removeItem("token");
+  clearClientAuthStorage();
     // Optionally redirect to login or home
     window.location.href = "/login"; // Use window.location.href to force full page reload
 };

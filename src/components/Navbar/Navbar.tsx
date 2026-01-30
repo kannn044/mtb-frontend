@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { clearClientAuthStorage } from "@/lib/authStorage";
 
 type UserStatus = "ADMIN" | "USER" | "UNKNOWN";
 
@@ -91,8 +92,7 @@ export function Navbar() {
   }, [userStatus]);
 
   const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    sessionStorage.removeItem("token");
+    clearClientAuthStorage();
     router.push("/login");
   };
 
