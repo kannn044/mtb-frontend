@@ -79,7 +79,6 @@ export function Navbar() {
 
   const menuItems = useMemo(() => {
     const items = [
-      { href: "/dashboard", label: "Dashboard" },
       { href: "/download", label: "Download" },
       { href: "/upload", label: "Upload" },
     ];
@@ -107,6 +106,28 @@ export function Navbar() {
             </span>
           </div>
           <div className="hidden md:flex items-center space-x-8">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${
+                    pathname === "/dashboard"
+                      ? "border-indigo-500 text-gray-900"
+                      : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                  }`}
+                >
+                  Dashboard
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard">MTB Sample Dashboard</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/cluster">MTB Cluster Dashboard</Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {menuItems.map((item) => (
               <Link
                 key={item.href}

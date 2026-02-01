@@ -662,7 +662,7 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-bold mb-6">MTB Cluster Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-6">MTB Sample Dashboard</h1>
       {error && <div>Error: {error.message}</div>}
       {!error && loading && <div>Loading...</div>}
       {!error && !loading && !data && <div>No data available</div>}

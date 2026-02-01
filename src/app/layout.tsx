@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MTB Cluster Detection",
+  title: "MTB Sample Detection",
   description: "A tool for detecting clusters in MTB data",
 };
 
