@@ -352,18 +352,30 @@ export default function UploadPage() {
               toast.success(`Pipeline started! (ID: ${result.run_id})`);
 
               try {
+                // Extract email from JWT token in sessionStorage
+                let userEmail = "";
+                const token = sessionStorage.getItem('token');
+                if (token) {
+                  try {
+                  const payload = JSON.parse(atob(token.split('.')[1]));
+                  userEmail = payload.email || "";
+                  } catch {
+                  userEmail = "";
+                  }
+                }
+
                 const emailRes = await fetch(`${API_URL}/api/email/send`, {
                   method: "POST",
                   headers: {
-                    "Content-Type": "application/json",
+                  "Content-Type": "application/json",
                   },
                   body: JSON.stringify({
-                    to: "peemppk5538@gmail.com",
-                    subject: "MTB-Cluster Web: Processing Started",
-                    text:
-                      `Your MTB-Cluster file processing has started successfully.` +
-                      `${result?.run_id ? `\n\nRun ID: ${result.run_id}` : ""}` +
-                      `\n\nYou can check progress and download results from the Download tab once processing is complete.`,
+                  to: userEmail,
+                  subject: "MTB-Cluster Web: Processing Started",
+                  text:
+                    `Your MTB-Cluster file processing has started successfully.` +
+                    `${result?.run_id ? `\n\nRun ID: ${result.run_id}` : ""}` +
+                    `\n\nYou can check progress and download results from the Download tab once processing is complete.`,
                   }),
                 });
                 if (!emailRes.ok) {
