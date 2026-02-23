@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from "react";
@@ -8,7 +7,8 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/login");
+    // Viewer doesn't need to login anymore
+    router.replace("/dashboard");
   }, [router]);
 
   return null;

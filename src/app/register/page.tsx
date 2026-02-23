@@ -16,15 +16,25 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [lastname, setLastname] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleRegister = async () => {
     // Client-side validation
-    if (!username || !email || !name || !lastname) {
-      toast.error("Please fill in all fields.");
+    if (!username || !email || !name || !lastname || !password) {
+      toast.error("Please fill in all required fields.");
       return;
     }
+
+    // Password complexity check: 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      toast.error("Password must be at least 8 characters long, contain an uppercase letter, a lowercase letter, a number, and a special character.");
+      return;
+    }
+
     if (!/^\S+@\S+\.\S+$/.test(email)) {
       toast.error("Please enter a valid email address.");
       return;
@@ -37,7 +47,7 @@ export default function RegisterPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, email, name, lastname }),
+        body: JSON.stringify({ username, email, name, lastname, organization }),
       });
 
       if (response.ok) {
@@ -109,6 +119,26 @@ export default function RegisterPage() {
                 value={lastname}
                 onChange={(e) => setLastname(e.target.value)}
                 required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="********"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="organization">Organization</Label>
+              <Input
+                id="organization"
+                placeholder="Ministry of Public Health"
+                value={organization}
+                onChange={(e) => setOrganization(e.target.value)}
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>

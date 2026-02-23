@@ -2,32 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import API_URL from "@/lib/api";
-import { toast } from "sonner";
-
-const getToken = () => {
-  try {
-    return localStorage.getItem("token") ?? sessionStorage.getItem("token");
-  } catch {
-    return null;
-  }
-};
-
-const setTokenCookie = (token: string) => {
-  const safeValue = encodeURIComponent(token);
-  const secure = typeof window !== "undefined" && window.location.protocol === "https:";
-  document.cookie = `token=${safeValue}; Path=/; SameSite=Lax${secure ? "; Secure" : ""}`;
-};
 
 export default function ClusterDashboardPage() {
   const handleViewReport = () => {
-    const token = getToken();
-
-    if (token) {
-      setTokenCookie(token);
-    } else {
-      toast.error("Authentication token not found.");
-      return;
-    }
 
     const fileName = "overall_report/overall_wgs_cluster_summary_report.html";
     const url = `${API_URL}/api/dashboard/report/cluster-view/${fileName}`;

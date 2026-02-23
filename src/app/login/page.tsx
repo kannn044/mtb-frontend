@@ -14,6 +14,7 @@ import API_URL from "@/lib/api";
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const router = useRouter();
 
   const handleLogin = async () => {
@@ -23,16 +24,21 @@ export default function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, rememberMe }),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
-        sessionStorage.setItem('token', data.token);
+        if (rememberMe) {
+          localStorage.setItem('token', data.token); // persistent
+        } else {
+          sessionStorage.setItem('token', data.token); // session only
+        }
         localStorage.setItem('isLoggedIn', 'true');
         router.push('/dashboard');
       } else {
-        toast.error('Invalid credentials');
+        toast.error(data.message || 'Invalid credentials'); // Show specific error like "Account locked"
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -69,10 +75,20 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="1234"
+                placeholder="********"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="rememberMe"
+                className="rounded border-gray-300"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              <Label htmlFor="rememberMe" className="text-sm font-normal">Remember Me</Label>
             </div>
             <Button type="submit" className="w-full">
               Login
@@ -80,7 +96,7 @@ export default function LoginPage() {
           </form>
           <div className="mt-4 text-center">
             <Button variant="link" onClick={() => router.push('/register')}>
-              Don't have an account? Register
+              Don&apos;t have an account? Register
             </Button>
           </div>
         </CardContent>

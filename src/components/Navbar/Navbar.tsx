@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { clearClientAuthStorage } from "@/lib/authStorage";
 
-type UserStatus = "ADMIN" | "USER" | "UNKNOWN";
+type UserStatus = "ADMIN" | "UPLOADER" | "VIEWER" | "USER" | "UNKNOWN";
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   const parts = token.split(".");
@@ -49,7 +49,9 @@ function getStatusFromToken(token: string | null): UserStatus {
 
     const normalized = String(rawStatus ?? "").toUpperCase();
     if (normalized === "ADMIN") return "ADMIN";
-    if (normalized === "USER") return "USER";
+    if (normalized === "UPLOADER") return "UPLOADER";
+    if (normalized === "VIEWER") return "VIEWER";
+    if (normalized === "USER") return "USER"; // fallback for old data
     return "UNKNOWN";
   } catch {
     return "UNKNOWN";
@@ -61,16 +63,12 @@ export function Navbar() {
   const router = useRouter();
 
   const [token, setToken] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("token");
     if (stored) {
+      // eslint-disable-next-line
       setToken(stored);
-      const payload = decodeJwtPayload(stored);
-      if (payload) {
-        setUserName(payload.username as string || payload.name as string || null);
-      }
     }
   }, []);
 
@@ -78,13 +76,15 @@ export function Navbar() {
   const userStatus = useMemo(() => getStatusFromToken(token), [token]);
 
   const menuItems = useMemo(() => {
-    const items = [
-      { href: "/download", label: "Download" },
-      { href: "/upload", label: "Upload" },
-    ];
+    const items: { href: string; label: string }[] = [];
+
+    if (userStatus === "ADMIN" || userStatus === "UPLOADER") {
+      items.push({ href: "/download", label: "Download" });
+      items.push({ href: "/upload", label: "Upload" });
+    }
 
     if (userStatus === "ADMIN") {
-      items.push({ href: "/user-management", label: "Usermanagement" });
+      items.push({ href: "/user-management", label: "User Management" });
     }
 
     return items;
@@ -110,11 +110,10 @@ export function Navbar() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${
-                    pathname === "/dashboard"
-                      ? "border-indigo-500 text-gray-900"
-                      : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                  }`}
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${pathname === "/dashboard"
+                    ? "border-indigo-500 text-gray-900"
+                    : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                    }`}
                 >
                   Dashboard
                 </button>
@@ -132,11 +131,10 @@ export function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                  pathname === item.href
-                    ? "border-indigo-500 text-gray-900"
-                    : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                }`}
+                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${pathname === item.href
+                  ? "border-indigo-500 text-gray-900"
+                  : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                  }`}
               >
                 {item.label}
               </Link>
@@ -153,12 +151,6 @@ export function Navbar() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <Link href="/profile">Profile</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Link href="/config">Configuration</Link>
-                  </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Link href="/change-password">Change Password</Link>
                   </DropdownMenuItem>

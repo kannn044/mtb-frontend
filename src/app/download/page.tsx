@@ -15,16 +15,7 @@ type DownloadRun = {
   overallReportUrl?: string;
 };
 
-const toSameOriginApiUrl = (href: string) => {
-  if (href.startsWith("/api/")) return href;
-  try {
-    const url = new URL(href);
-    if (url.pathname.startsWith("/api/")) return `${url.pathname}${url.search}`;
-  } catch {
-    // ignore
-  }
-  return href;
-};
+
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
