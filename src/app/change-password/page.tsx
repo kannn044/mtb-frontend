@@ -16,8 +16,8 @@ import { clearClientAuthStorage } from "@/lib/authStorage";
 // This logout function should be consistent with the one in Navbar.tsx
 const handleLogout = () => {
   clearClientAuthStorage();
-    // Optionally redirect to login or home
-    window.location.href = "/login"; // Use window.location.href to force full page reload
+  // Optionally redirect to login or home
+  window.location.href = "/login"; // Use window.location.href to force full page reload
 };
 
 
@@ -39,8 +39,9 @@ export default function ChangePasswordPage() {
       toast.error("Please fill in all fields.");
       return;
     }
-    if (newPassword.length < 6) {
-      toast.error("New password must be at least 6 characters long.");
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      toast.error("Password must be at least 8 characters long, contain an uppercase letter, a lowercase letter, a number, and a special character.");
       return;
     }
     if (newPassword !== confirmNewPassword) {
