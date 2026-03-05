@@ -65,7 +65,7 @@ export function Navbar() {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("token");
+    const stored = localStorage.getItem("token") ?? sessionStorage.getItem("token");
     if (stored) {
       // eslint-disable-next-line
       setToken(stored);

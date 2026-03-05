@@ -29,8 +29,9 @@ interface User {
   email?: string;
   name: string;
   lastname: string;
+  organization?: string;
   status: string;
-  is_active: boolean;
+  is_active: string;
 }
 
 interface UserPayload {
@@ -38,8 +39,9 @@ interface UserPayload {
   email: string;
   name: string;
   lastname: string;
+  organization: string;
   status: string;
-  is_active: boolean;
+  is_active: string;
   password?: string;
 }
 
@@ -50,7 +52,7 @@ export default function UserManagementPage() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const token = sessionStorage.getItem('token');
+      const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -82,7 +84,8 @@ export default function UserManagementPage() {
       email: formData.get("email") as string,
       name: formData.get("name") as string,
       lastname: formData.get("lastname") as string,
-      is_active: formData.get("is_active") === "true",
+      organization: formData.get("organization") as string,
+      is_active: formData.get("is_active") as string,
       status: formData.get("status") as string,
     };
 
@@ -92,7 +95,7 @@ export default function UserManagementPage() {
 
     if (currentUser) {
       try {
-        const token = sessionStorage.getItem('token');
+        const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
         const response = await fetch(`${API_URL}/api/users/${currentUser.id}`, {
           method: 'PUT',
           headers: {
@@ -115,7 +118,7 @@ export default function UserManagementPage() {
       }
     } else {
       try {
-        const token = sessionStorage.getItem('token');
+        const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
         const response = await fetch(`${API_URL}/api/users`, {
           method: 'POST',
           headers: {
@@ -154,6 +157,7 @@ export default function UserManagementPage() {
               <TableHead>Username</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Full Name</TableHead>
+              <TableHead>Organization</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Is Active</TableHead>
               <TableHead>Actions</TableHead>
@@ -166,8 +170,9 @@ export default function UserManagementPage() {
                 <TableCell>{user.username}</TableCell>
                 <TableCell>{user.email || "-"}</TableCell>
                 <TableCell>{user.name} {user.lastname}</TableCell>
+                <TableCell>{user.organization || "-"}</TableCell>
                 <TableCell>{user.status}</TableCell>
-                <TableCell>{user.is_active ? 'Yes' : 'No'}</TableCell>
+                <TableCell>{user.is_active === 'Y' ? 'Yes' : 'No'}</TableCell>
                 <TableCell>
                   <div className="flex space-x-2">
                     <Button
@@ -200,6 +205,8 @@ export default function UserManagementPage() {
                 name="username"
                 defaultValue={currentUser?.username}
                 required
+                readOnly={!!currentUser}
+                className={currentUser ? "bg-muted cursor-not-allowed" : ""}
               />
             </div>
             <div className="space-y-2">
@@ -240,16 +247,24 @@ export default function UserManagementPage() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="organization">Organization</Label>
+              <Input
+                id="organization"
+                name="organization"
+                defaultValue={currentUser?.organization}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="is_active">Is Active</Label>
               <select
                 id="is_active"
                 name="is_active"
-                defaultValue={currentUser ? (currentUser.is_active ? 'true' : 'false') : 'true'}
+                defaultValue={currentUser ? currentUser.is_active : 'Y'}
                 required
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="true">Activate</option>
-                <option value="false">Deactivate</option>
+                <option value="Y">Activate</option>
+                <option value="N">Deactivate</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -257,13 +272,13 @@ export default function UserManagementPage() {
               <select
                 id="status"
                 name="status"
-                defaultValue={currentUser?.status || 'USER'}
+                defaultValue={currentUser?.status || 'VIEWER'}
                 required
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {/* <option value="ADMIN">ADMIN</option> */}
-                <option value="STAFF">STAFF</option>
-                <option value="USER">USER</option>
+                <option value="UPLOADER">UPLOADER</option>
+                <option value="VIEWER">VIEWER</option>
               </select>
             </div>
             <div className="flex justify-end space-x-2">

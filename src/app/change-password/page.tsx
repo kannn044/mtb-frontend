@@ -55,7 +55,7 @@ export default function ChangePasswordPage() {
 
     setIsLoading(true);
     try {
-      const token = sessionStorage.getItem("token");
+      const token = localStorage.getItem("token") ?? sessionStorage.getItem("token");
       if (!token) {
         toast.error("You are not logged in. Please log in first.");
         handleLogout(); // Force logout if no token

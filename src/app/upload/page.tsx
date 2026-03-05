@@ -63,7 +63,7 @@ export default function UploadPage() {
   useEffect(() => {
     const fetchProvinces = async () => {
       try {
-        const token = sessionStorage.getItem('token');
+        const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
         const res = await fetch(`${API_URL}/api/upload/provinces`, {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` },
@@ -94,7 +94,7 @@ export default function UploadPage() {
     const fetchDistricts = async () => {
       setIsLocationLoading(true);
       try {
-        const token = sessionStorage.getItem('token');
+        const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
         const res = await fetch(`${API_URL}/api/upload/districts?pcode=${selectedPcode}`, {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` },
@@ -227,7 +227,7 @@ export default function UploadPage() {
     }
 
     const formData = new FormData();
-    const token = sessionStorage.getItem('token');
+    const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
 
     // แยก Logic ตาม Tab
     if (activeTab === "single") {
@@ -320,7 +320,7 @@ export default function UploadPage() {
 
   const handleOpenRunModal = async () => {
       try {
-          const token = sessionStorage.getItem('token');
+          const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
           const res = await fetch(`${API_URL}/api/upload/run/preview`, {
               method: 'GET',
               headers: { 'Authorization': `Bearer ${token}` },
@@ -341,7 +341,7 @@ export default function UploadPage() {
   const handleExecuteRun = async () => {
       setIsRunning(true);
       try {
-          const token = sessionStorage.getItem('token');
+          const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
           const res = await fetch(`${API_URL}/api/upload/run/execute`, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${token}` },
@@ -362,7 +362,7 @@ export default function UploadPage() {
                 try {
                   // Extract email from JWT token in sessionStorage
                   let userEmail = "";
-                  const token = sessionStorage.getItem('token');
+                  const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
                   if (token) {
                     try {
                     const payload = JSON.parse(atob(token.split('.')[1]));
