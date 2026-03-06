@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,14 @@ export default function ChangePasswordPage() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+
+  // Auth check — redirect if not logged in
+  useEffect(() => {
+    const token = localStorage.getItem("token") ?? sessionStorage.getItem("token");
+    if (!token) {
+      router.replace("/login");
+    }
+  }, [router]);
 
   // State for password visibility
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);

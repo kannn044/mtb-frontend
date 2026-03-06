@@ -43,7 +43,7 @@ export default function RegisterPage() {
       });
 
       if (response.ok) {
-        toast.success("ลงทะเบียนสำเร็จ กรุณาตรวจสอบอีเมล");
+        toast.success("ลงทะเบียนสำเร็จ กรุณารอ admin อนุมัติการใช้งาน");
         router.push('/login');
       } else {
         const errorData = await response.json();

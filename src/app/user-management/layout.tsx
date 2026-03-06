@@ -1,17 +1,20 @@
 
 import { Navbar } from "@/components/Navbar/Navbar";
 import { Toaster } from 'sonner';
+import AuthGuard from "@/components/AuthGuard";
 
-export default function DashboardLayout({
+export default function UserManagementLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <Navbar />
-      <main>{children}</main>
-      <Toaster />
-    </div>
+    <AuthGuard>
+      <div>
+        <Navbar />
+        <main>{children}</main>
+        <Toaster />
+      </div>
+    </AuthGuard>
   );
 }
