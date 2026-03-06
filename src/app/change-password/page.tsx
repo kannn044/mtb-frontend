@@ -39,7 +39,7 @@ export default function ChangePasswordPage() {
       toast.error("Please fill in all fields.");
       return;
     }
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^~_\-+=|\\/.,:;()\[\]{}])[A-Za-z\d@$!%*?&#^~_\-+=|\\/.,:;()\[\]{}]{8,}$/;
     if (!passwordRegex.test(newPassword)) {
       toast.error("Password must be at least 8 characters long, contain an uppercase letter, a lowercase letter, a number, and a special character.");
       return;
