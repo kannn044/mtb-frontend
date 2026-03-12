@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,8 +16,8 @@ import { clearClientAuthStorage } from "@/lib/authStorage";
 // This logout function should be consistent with the one in Navbar.tsx
 const handleLogout = () => {
   clearClientAuthStorage();
-    // Optionally redirect to login or home
-    window.location.href = "/login"; // Use window.location.href to force full page reload
+  // Optionally redirect to login or home
+  window.location.href = "/login"; // Use window.location.href to force full page reload
 };
 
 
@@ -27,6 +27,14 @@ export default function ChangePasswordPage() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+
+  // Auth check — redirect if not logged in
+  useEffect(() => {
+    const token = localStorage.getItem("token") ?? sessionStorage.getItem("token");
+    if (!token) {
+      router.replace("/login");
+    }
+  }, [router]);
 
   // State for password visibility
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -39,8 +47,9 @@ export default function ChangePasswordPage() {
       toast.error("Please fill in all fields.");
       return;
     }
-    if (newPassword.length < 6) {
-      toast.error("New password must be at least 6 characters long.");
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^~_\-+=|\\/.,:;()\[\]{}])[A-Za-z\d@$!%*?&#^~_\-+=|\\/.,:;()\[\]{}]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      toast.error("Password must be at least 8 characters long, contain an uppercase letter, a lowercase letter, a number, and a special character.");
       return;
     }
     if (newPassword !== confirmNewPassword) {
@@ -54,7 +63,7 @@ export default function ChangePasswordPage() {
 
     setIsLoading(true);
     try {
-      const token = sessionStorage.getItem("token");
+      const token = localStorage.getItem("token") ?? sessionStorage.getItem("token");
       if (!token) {
         toast.error("You are not logged in. Please log in first.");
         handleLogout(); // Force logout if no token

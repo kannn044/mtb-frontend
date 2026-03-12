@@ -63,7 +63,7 @@ export default function UploadPage() {
   useEffect(() => {
     const fetchProvinces = async () => {
       try {
-        const token = sessionStorage.getItem('token');
+        const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
         const res = await fetch(`${API_URL}/api/upload/provinces`, {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` },
@@ -94,7 +94,7 @@ export default function UploadPage() {
     const fetchDistricts = async () => {
       setIsLocationLoading(true);
       try {
-        const token = sessionStorage.getItem('token');
+        const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
         const res = await fetch(`${API_URL}/api/upload/districts?pcode=${selectedPcode}`, {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` },
@@ -169,11 +169,11 @@ export default function UploadPage() {
   const handleExcelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      const validExtensions = ['.xlsx', '.xls'];
+      const validExtensions = ['.xlsx', '.xls', '.csv'];
       if (validExtensions.some(ext => file.name.toLowerCase().endsWith(ext))) {
         setExcelFile(file);
       } else {
-        toast.error("Please upload a valid Excel file (.xlsx, .xls)");
+        toast.error("Please upload a valid metadata file (.xlsx, .xls, .csv)");
       }
     }
     if (excelInputRef.current) excelInputRef.current.value = "";
@@ -227,7 +227,7 @@ export default function UploadPage() {
     }
 
     const formData = new FormData();
-    const token = sessionStorage.getItem('token');
+    const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
 
     // แยก Logic ตาม Tab
     if (activeTab === "single") {
@@ -254,7 +254,7 @@ export default function UploadPage() {
     } else {
         // Batch Mode
         if (!excelFile) {
-            toast.error("กรุณาอัปโหลดไฟล์ Excel (Metadata)");
+            toast.error("กรุณาอัปโหลดไฟล์ Metadata (Excel หรือ CSV)");
             return;
         }
         
@@ -320,7 +320,7 @@ export default function UploadPage() {
 
   const handleOpenRunModal = async () => {
       try {
-          const token = sessionStorage.getItem('token');
+          const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
           const res = await fetch(`${API_URL}/api/upload/run/preview`, {
               method: 'GET',
               headers: { 'Authorization': `Bearer ${token}` },
@@ -341,7 +341,7 @@ export default function UploadPage() {
   const handleExecuteRun = async () => {
       setIsRunning(true);
       try {
-          const token = sessionStorage.getItem('token');
+          const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
           const res = await fetch(`${API_URL}/api/upload/run/execute`, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${token}` },
@@ -362,7 +362,7 @@ export default function UploadPage() {
                 try {
                   // Extract email from JWT token in sessionStorage
                   let userEmail = "";
-                  const token = sessionStorage.getItem('token');
+                  const token = localStorage.getItem('token') ?? sessionStorage.getItem('token');
                   if (token) {
                     try {
                     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -444,7 +444,7 @@ export default function UploadPage() {
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "batch" ? tabActive : tabInactive}`}
           >
               <div className="flex items-center gap-2">
-                  <FileSpreadsheet className="h-4 w-4" /> Batch Upload (Excel)
+                  <FileSpreadsheet className="h-4 w-4" /> Batch Upload (Excel/CSV)
               </div>
           </button>
         </div>
@@ -626,7 +626,7 @@ export default function UploadPage() {
               <div className="animate-in fade-in duration-300">
                 <div className="bg-emerald-50 p-6 rounded-lg border border-dashed border-emerald-300 mb-6">
                     <label className="text-base font-semibold mb-4 block text-emerald-800 flex items-center gap-2">
-                        <FileSpreadsheet className="h-5 w-5" /> Upload Metadata Excel <span className="text-red-500">*</span>
+                        <FileSpreadsheet className="h-5 w-5" /> Upload Metadata Excel/CSV <span className="text-red-500">*</span>
                     </label>
 
                     {!excelFile ? (
@@ -635,10 +635,10 @@ export default function UploadPage() {
                             className="bg-white border-2 border-dashed border-emerald-200 rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/50 transition-all"
                         >
                             <FileSpreadsheet className="h-10 w-10 text-emerald-400 mb-2" />
-                            <p className="text-sm text-emerald-600 font-medium">Click to upload .xlsx or .xls file</p>
+                            <p className="text-sm text-emerald-600 font-medium">Click to upload .xlsx, .xls, or .csv file</p>
                             <input 
                                 type="file" 
-                                accept=".xlsx, .xls" 
+                                accept=".xlsx, .xls, .csv" 
                                 className="hidden" 
                                 ref={excelInputRef} 
                                 onChange={handleExcelChange} 
@@ -662,7 +662,7 @@ export default function UploadPage() {
                         </div>
                     )}
                     <p className="text-xs text-emerald-600 mt-2">
-                        * Ensure the Excel file contains columns matching the metadata fields (e.g., patient_id, sample_id).
+                        * Ensure the metadata file contains columns matching the metadata fields (e.g., patient_id, sample_id).
                     </p>
                 </div>
               </div>

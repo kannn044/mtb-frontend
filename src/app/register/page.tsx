@@ -17,21 +17,13 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [lastname, setLastname] = useState("");
   const [organization, setOrganization] = useState("");
-  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleRegister = async () => {
     // Client-side validation
-    if (!username || !email || !name || !lastname || !password) {
+    if (!username || !email || !name || !lastname) {
       toast.error("Please fill in all required fields.");
-      return;
-    }
-
-    // Password complexity check: 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(password)) {
-      toast.error("Password must be at least 8 characters long, contain an uppercase letter, a lowercase letter, a number, and a special character.");
       return;
     }
 
@@ -51,7 +43,7 @@ export default function RegisterPage() {
       });
 
       if (response.ok) {
-        toast.success("ลงทะเบียนสำเร็จ กรุณาตรวจสอบอีเมล");
+        toast.success("ลงทะเบียนสำเร็จ กรุณารอ admin อนุมัติการใช้งาน");
         router.push('/login');
       } else {
         const errorData = await response.json();
@@ -121,17 +113,7 @@ export default function RegisterPage() {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="********"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+
             <div className="space-y-2">
               <Label htmlFor="organization">Organization</Label>
               <Input

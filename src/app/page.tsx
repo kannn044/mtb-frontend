@@ -7,8 +7,13 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Viewer doesn't need to login anymore
-    router.replace("/dashboard");
+    const token =
+      localStorage.getItem("token") ?? sessionStorage.getItem("token");
+    if (token) {
+      router.replace("/dashboard");
+    } else {
+      router.replace("/login");
+    }
   }, [router]);
 
   return null;
