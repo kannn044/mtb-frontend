@@ -15,7 +15,7 @@ export const nextAuthOptions: NextAuthOptions = {
                 password: { label: "Password", type: "password" }
             },
             async authorize(credentials) {
-                const res = await fetch(`${API_URL}/login`, {
+                const res = await fetch(`${API_URL}/api/login`, {
                     method: 'POST',
                     body: JSON.stringify(credentials),
                     headers: { "Content-Type": "application/json" }

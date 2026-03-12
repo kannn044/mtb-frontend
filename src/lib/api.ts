@@ -4,7 +4,7 @@ const API_URL: string = (() => {
 
 	// In dev, prefer same-origin requests ("/api/..."), and let Next.js `rewrites()`
 	// proxy them to `http://localhost:3001` to avoid browser CORS.
-	const fallback = isDev ? "" : "/mtbcluster/api";
+	const fallback = isDev ? "" : "/mtbcluster";
 	const apiUrl = (configured || fallback).replace(/\/+$/, "");
 	return apiUrl;
 })();
