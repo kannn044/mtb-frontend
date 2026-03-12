@@ -3,7 +3,7 @@
 import API_URL from '@/lib/api';
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, X, Loader2, FileArchive, CalendarIcon, FileSpreadsheet, FileText, Play } from "lucide-react"; // เพิ่ม Play
+import { Upload, X, Loader2, FileArchive, CalendarIcon, FileSpreadsheet, FileText, Play, AlertTriangle } from "lucide-react"; // เพิ่ม Play
 import { toast } from "sonner";
 
 // --- Types สำหรับ Location ---
@@ -38,8 +38,11 @@ export default function UploadPage() {
   // --- New State: Tab Management ---
   const [activeTab, setActiveTab] = useState<"single" | "batch">("single");
 
-  // State สำหรับเก็บไฟล์ .gz (ใช้ร่วมกันทั้ง 2 โหมด)
+  // State สำหรับเก็บไฟล์ sequence (ใช้ร่วมกันทั้ง 2 โหมด)
   const [files, setFiles] = useState<File[]>([]);
+  
+  // --- FASTA warning state ---
+  const [hasFastaFiles, setHasFastaFiles] = useState(false);
   
   // --- New State: Excel File ---
   const [excelFile, setExcelFile] = useState<File | null>(null);
@@ -136,26 +139,46 @@ export default function UploadPage() {
     setSelectedPcode(provinceObj ? provinceObj.adm1_pcode : "");
   };
 
-  // --- File Handlers (.gz) ---
+  // --- File Handlers (sequence files) ---
+
+  const FASTA_EXTENSIONS = ['.fasta', '.fa', '.fas', '.fasta.gz', '.fa.gz'];
+
+  const isAcceptedFile = (filename: string): boolean => {
+    const lower = filename.toLowerCase();
+    if (lower.endsWith('.fastq.gz')) return true;
+    return FASTA_EXTENSIONS.some(ext => lower.endsWith(ext));
+  };
+
+  const isFastaFileName = (filename: string): boolean => {
+    const lower = filename.toLowerCase();
+    return FASTA_EXTENSIONS.some(ext => lower.endsWith(ext));
+  };
+
+  const updateFastaWarning = (fileList: File[]) => {
+    setHasFastaFiles(fileList.some(f => isFastaFileName(f.name)));
+  };
+
   const handleFiles = (fileList: FileList) => {
     if (fileList && fileList.length > 0) {
       const selectedFiles = Array.from(fileList);
-      const validFiles = selectedFiles.filter(file => file.name.toLowerCase().endsWith('.gz'));
+      const validFiles = selectedFiles.filter(file => isAcceptedFile(file.name));
       
       if (validFiles.length < selectedFiles.length) {
-        toast.warning(`Skipped non-.gz files`);
+        toast.error("Invalid file type. Please upload only .fastq.gz or FASTA format files.");
       }
 
       // --- LOGIC: Limit files for Single Entry ---
       if (activeTab === "single") {
         if (files.length + validFiles.length > 2) {
-          toast.error("Single Entry mode allows a maximum of 2 .gz files.");
+          toast.error("Single Entry mode allows a maximum of 2 files.");
           return;
         }
       }
 
       if (validFiles.length > 0) {
-        setFiles((prev) => [...prev, ...validFiles]);
+        const newFiles = [...files, ...validFiles];
+        setFiles(newFiles);
+        updateFastaWarning(newFiles);
       }
     }
   };
@@ -203,7 +226,9 @@ export default function UploadPage() {
   const removeFile = (index: number) => {
     // ถ้าไฟล์ถูกลบ ต้องเคลียร์ค่าใน metadata ของ fastq ด้วยเพื่อป้องกันข้อมูลผิดพลาด
     const fileToRemove = files[index];
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    const newFiles = files.filter((_, i) => i !== index);
+    setFiles(newFiles);
+    updateFastaWarning(newFiles);
     
     // Optional: Clear selection if the removed file was selected
     if(activeTab === "single") {
@@ -222,7 +247,7 @@ export default function UploadPage() {
 
     // Validation
     if (files.length === 0) {
-      toast.error("กรุณาอัปโหลดไฟล์ .gz อย่างน้อย 1 ไฟล์");
+      toast.error("Please upload at least one sequence file.");
       return;
     }
 
@@ -233,15 +258,15 @@ export default function UploadPage() {
     if (activeTab === "single") {
         // Validate required fields
         if(!metadata.patient_id || !metadata.sample_id) {
-            toast.error("กรุณากรอก Patient ID และ Sample ID");
+            toast.error("Please enter Patient ID and Sample ID.");
             return;
         }
         if(!metadata.fastq_1 || !metadata.fastq_2) {
-            toast.error("กรุณาเลือกไฟล์ FastQ 1 และ FastQ 2");
+            toast.error("Please select File 1 and File 2.");
             return;
         }
         if(metadata.fastq_1 === metadata.fastq_2) {
-            toast.error("FastQ File 1 และ FastQ File 2 ต้องไม่เหมือนกัน");
+            toast.error("File 1 and File 2 must not be the same.");
             return;
         }
 
@@ -254,7 +279,7 @@ export default function UploadPage() {
     } else {
         // Batch Mode
         if (!excelFile) {
-            toast.error("กรุณาอัปโหลดไฟล์ Metadata (Excel หรือ CSV)");
+            toast.error("Please upload a Metadata file (Excel or CSV).");
             return;
         }
         
@@ -291,6 +316,7 @@ export default function UploadPage() {
         setExcelFile(null);
         setSelectedPcode("");
         setDistrictList([]);
+        setHasFastaFiles(false);
       } else if(activeTab === "batch") {        
         const response = await fetch(`${API_URL}/api/upload/batch`, {
           method: "POST",
@@ -350,7 +376,15 @@ export default function UploadPage() {
           if (res.ok) {
               const result = await res.json();
               const isQueued = result?.status === 'QUEUED';
+              const isAborted = result?.status === 'ABORTED';
               const queuePosition = result?.queue_position ? ` (Queue #${result.queue_position})` : '';
+
+              if (isAborted) {
+                toast.warning(result.message || 'Pipeline was aborted due to FASTA files.');
+                setShowRunModal(false);
+                setPreviewSamples([]);
+                return;
+              }
 
               if (isQueued) {
                 toast.success(`Pipeline queued${queuePosition}! (ID: ${result.run_id})`);
@@ -399,6 +433,7 @@ export default function UploadPage() {
               setFiles([]);
               setMetadata({});
               setExcelFile(null);
+              setHasFastaFiles(false);
               // อาจจะ refresh preview ใหม่เพื่อให้ list ว่างเปล่า
               setPreviewSamples([]); 
           } else {
@@ -501,7 +536,7 @@ export default function UploadPage() {
                           disabled={isLoading || files.length === 0}
                       >
                           <option value="">
-                              {files.length === 0 ? "Upload .gz files first" : "Select File 1"}
+                              {files.length === 0 ? "Upload files first" : "Select File 1"}
                           </option>
                           {files.map((f, idx) => (
                               <option key={`f1-${idx}`} value={f.name}>{f.name}</option>
@@ -522,7 +557,7 @@ export default function UploadPage() {
                           disabled={isLoading || files.length === 0}
                       >
                           <option value="">
-                              {files.length === 0 ? "Upload .gz files first" : "Select File 2"}
+                              {files.length === 0 ? "Upload files first" : "Select File 2"}
                           </option>
                           {files.map((f, idx) => (
                               <option key={`f2-${idx}`} value={f.name}>{f.name}</option>
@@ -670,12 +705,22 @@ export default function UploadPage() {
 
             <div className="border-t border-slate-100 my-4"></div>
 
-            {/* --- PART 2: GZ FILES UPLOAD (SHARED) --- */}
+            {/* --- PART 2: SEQUENCE FILES UPLOAD (SHARED) --- */}
             <div className="bg-slate-50 p-6 rounded-lg border border-dashed border-slate-300">
               <label className="text-base font-semibold mb-4 block text-slate-800">
-                Sequencing Files Upload (.gz) <span className="text-red-500">*</span>
+                Sequencing Files Upload (.fastq.gz / .fasta) <span className="text-red-500">*</span>
                 {activeTab === "single" && <span className="text-xs font-normal text-slate-500 ml-2">(Max 2 files for Single Entry)</span>}
               </label>
+
+              {/* FASTA Warning Banner */}
+              {hasFastaFiles && (
+                <div className="mb-4 flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-4">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-amber-800">
+                    <strong>Note:</strong> You have selected FASTA file(s). The current pipeline can only analyze .fastq.gz files. Your files will be uploaded, but the pipeline will NOT run.
+                  </p>
+                </div>
+              )}
               
               <div 
                 onClick={() => !isLoading && fileInputRef.current?.click()}
@@ -692,9 +737,9 @@ export default function UploadPage() {
                 `}
               >
                 <Upload className="h-12 w-12 text-slate-400 mb-3" />
-                <p className="text-sm text-slate-600 font-medium">Click or drag & drop to select .gz files</p>
-                <p className="text-xs text-slate-400 mt-1">Supports multiple files upload</p>
-                <input type="file" multiple accept=".gz" className="hidden" ref={fileInputRef} onChange={handleFileChange} disabled={isLoading} />
+                <p className="text-sm text-slate-600 font-medium">Click or drag & drop to select sequence files</p>
+                <p className="text-xs text-slate-400 mt-1">Accepted: .fastq.gz, .fasta, .fa, .fas, .fasta.gz, .fa.gz</p>
+                <input type="file" multiple accept=".gz,.fasta,.fa,.fas" className="hidden" ref={fileInputRef} onChange={handleFileChange} disabled={isLoading} />
               </div>
 
               {/* File List */}
