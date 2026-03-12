@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-	basePath: '/mtbcluster',
+	basePath: process.env.NODE_ENV === 'development' ? '' : '/mtbcluster',
 	experimental: process.env.NODE_ENV === "development" ? { proxyClientMaxBodySize: "500mb" } : {},
   async rewrites() {
     if (process.env.NODE_ENV !== "development") return [];
