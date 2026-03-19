@@ -13,20 +13,18 @@ import { Eye, EyeOff } from "lucide-react"; // Import Eye and EyeOff icons
 import API_URL from "@/lib/api";
 import { clearClientAuthStorage } from "@/lib/authStorage";
 
-// This logout function should be consistent with the one in Navbar.tsx
-const handleLogout = () => {
-  clearClientAuthStorage();
-  // Optionally redirect to login or home
-  window.location.href = "/login"; // Use window.location.href to force full page reload
-};
-
-
 export default function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+
+  // This logout function should be consistent with the one in Navbar.tsx
+  const handleLogout = () => {
+    clearClientAuthStorage();
+    router.push("/login");
+  };
 
   // Auth check — redirect if not logged in
   useEffect(() => {
