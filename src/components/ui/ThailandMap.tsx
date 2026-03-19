@@ -15,9 +15,11 @@ const ThailandMap: React.FC<ThailandMapProps> = ({ districtSummary }) => {
     null
   );
 
+  const basePath = process.env.NODE_ENV === "development" ? "" : "/mtbcluster";
+
   useEffect(() => {
     const fetchGeoJson = async () => {
-      const response = await fetch("/thailand-districts.geojson");
+      const response = await fetch(`${basePath}/thailand-districts.geojson`);
       const data = await response.json();
       setGeoJsonData(data);
     };
